@@ -34,11 +34,12 @@ export function exportBatchCsv(plaques, filename = 'plaquinhas-export.csv') {
     csv += `"${p.id}","${(p.name || 'Virgem').replace(/"/g, '""')}","${p.status}","${p.pin || ''}","${origin}/r/${p.id}","${(p.batch_name || 'Geral').replace(/"/g, '""')}","${(p.client_name || '').replace(/"/g, '""')}","${p.client_phone || ''}","${p.client_code || ''}",${p.scans_count || 0},"${p.created_at || ''}","${p.activated_at || ''}"\n`;
   }
 
+  const safeFilename = String(filename).replace(/[/\\?%*:|"<>]/g, '-');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename.endsWith('.csv') ? filename : `${filename}.csv`;
+  a.download = safeFilename.endsWith('.csv') ? safeFilename : `${safeFilename}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -52,6 +53,7 @@ export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProg
   }
 
   const total = plaques.length;
+  const safeBatchName = String(batchName || 'Lote').replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
 
   // Se o lote for muito massivo (> 500 imagens de 1000px), avisa e limita para não estourar RAM do navegador
   if (total > 500 && typeof window !== 'undefined' && typeof window.confirm === 'function') {
@@ -82,14 +84,14 @@ export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProg
     const svgContent = await generateCleanQRCodeSvg(plaque.id, true);
     folderSvg.file(`${plaque.id}-qrcode.svg`, svgContent);
 
-    csvContent += `"${plaque.id}","${plaque.name || 'Virgem'}","${plaque.status}","${plaque.pin || ''}","${origin}/r/${plaque.id}","${plaque.batch_name || batchName}"\n`;
+    csvContent += `"${plaque.id}","${plaque.name || 'Virgem'}","${plaque.status}","${plaque.pin || ''}","${origin}/r/${plaque.id}","${plaque.batch_name || safeBatchName}"\n`;
 
     // Cede o controle ao event loop para atualizar a barra de progresso na interface
     await new Promise(r => setTimeout(r, 4));
   }
 
   // Adiciona CSV de controle
-  zip.file(`Controle-${batchName}.csv`, csvContent);
+  zip.file(`Controle-${safeBatchName}.csv`, csvContent);
 
   // Instruções simples
   const readme = `LOTE DE QR CODES DINÂMICOS
@@ -113,7 +115,7 @@ Arquivos neste pacote:
     const downloadUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = `${batchName}-${total}-qrcodes.zip`;
+    a.download = `${safeBatchName}-${total}-qrcodes.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -50,44 +50,61 @@ const state = {
   portalPerPage: 25
 };
 
-// Router baseado em Hash
+// Router híbrido flexível (suporta Hash e Pathname direto)
 function getRoute() {
-  const hash = window.location.hash || '#/';
-  
-  if (hash.startsWith('#/activate/')) {
-    const id = hash.replace('#/activate/', '').split('?')[0];
-    return { name: 'activate', params: { id } };
+  const hash = window.location.hash || '';
+  const pathname = window.location.pathname || '';
+  const cleanPath = pathname.replace(/^\/+/, '');
+
+  // 1. Rota de Ativação (#/activate/:id, #/ativar/:id, #/a/:id, /activate/:id, /ativar/:id, /a/:id)
+  if (hash.startsWith('#/activate/') || hash.startsWith('#/ativar/') || hash.startsWith('#/a/')) {
+    const id = hash.replace(/^#\/(activate|ativar|a)\//, '').split('?')[0];
+    return { name: 'activate', params: { id: id ? id.toUpperCase() : '' } };
   }
-  
-  if (hash.startsWith('#/r/')) {
-    const id = hash.replace('#/r/', '').split('?')[0];
-    return { name: 'redirect', params: { id } };
+  if (cleanPath.startsWith('activate/') || cleanPath.startsWith('ativar/') || cleanPath.startsWith('a/')) {
+    const id = cleanPath.replace(/^(activate|ativar|a)\//, '').split('?')[0];
+    return { name: 'activate', params: { id: id ? id.toUpperCase() : '' } };
   }
 
+  // 2. Rota de Redirecionamento SPA (/r/:id ou #/r/:id)
+  if (hash.startsWith('#/r/')) {
+    const id = hash.replace('#/r/', '').split('?')[0];
+    return { name: 'redirect', params: { id: id ? id.toUpperCase() : '' } };
+  }
+  if (cleanPath.startsWith('r/')) {
+    const id = cleanPath.replace('r/', '').split('?')[0];
+    return { name: 'redirect', params: { id: id ? id.toUpperCase() : '' } };
+  }
+
+  // 3. Portal do Comprador / Cliente (#/cliente/:code ou /cliente/:code)
   if (hash.startsWith('#/cliente/')) {
     const code = decodeURIComponent(hash.replace('#/cliente/', '').split('?')[0]);
     return { name: 'cliente', params: { code } };
   }
+  if (cleanPath.startsWith('cliente/')) {
+    const code = decodeURIComponent(cleanPath.replace('cliente/', '').split('?')[0]);
+    return { name: 'cliente', params: { code } };
+  }
 
-  if (hash === '#/cliente' || hash === '#/meu-painel') {
+  if (hash === '#/cliente' || hash === '#/meu-painel' || cleanPath === 'cliente' || cleanPath === 'meu-painel') {
     return { name: 'cliente', params: { code: null } };
   }
 
-  if (hash === '#/admin-login' || hash === '#/login') {
+  if (hash === '#/admin-login' || hash === '#/login' || cleanPath === 'admin-login' || cleanPath === 'login') {
     return { name: 'admin-login' };
   }
 
-  if (hash === '#/clientes') return { name: 'clientes' };
+  if (hash === '#/clientes' || cleanPath === 'clientes') return { name: 'clientes' };
 
   if (hash.startsWith('#/lote/')) {
     const batchName = decodeURIComponent(hash.replace('#/lote/', '').split('?')[0]);
     return { name: 'batch', params: { batchName } };
   }
 
-  if (hash === '#/todas-placas') return { name: 'todas-placas' };
-  if (hash === '#/gerador') return { name: 'gerador' };
-  if (hash === '#/ajuda-google') return { name: 'ajuda-google' };
-  if (hash === '#/config') return { name: 'config' };
+  if (hash === '#/todas-placas' || cleanPath === 'todas-placas') return { name: 'todas-placas' };
+  if (hash === '#/gerador' || cleanPath === 'gerador') return { name: 'gerador' };
+  if (hash === '#/ajuda-google' || cleanPath === 'ajuda-google') return { name: 'ajuda-google' };
+  if (hash === '#/config' || cleanPath === 'config') return { name: 'config' };
 
   return { name: 'lotes' };
 }
@@ -102,16 +119,20 @@ async function renderApp() {
     state.currentRoute = route.name;
     state.currentBatch = route.params?.batchName || null;
 
-    // 1. Redirecionamento SPA (Se aberto via link curto /r/:id)
+    // 1. Redirecionamento SPA (Se aberto via link curto /r/:id ou #/r/:id)
     if (route.name === 'redirect') {
-      const plaque = storage.getPlaqueById(route.params.id);
+      let plaque = storage.getPlaqueById(route.params.id);
+      if (!plaque) {
+        plaque = await storage.fetchPlaqueFromCloud(route.params.id);
+      }
+
       if (plaque && plaque.status === 'active' && plaque.target_url && isValidHttpUrl(plaque.target_url)) {
         storage.recordScan(plaque.id);
         appEl.innerHTML = `
           <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: sans-serif;">
             <div style="text-align: center; padding: 2rem;">
               <p style="font-size: 0.875rem; color: #64748B;">Redirecionando para as avaliações...</p>
-              <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${plaque.name || plaque.id}</p>
+              <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${escapeHtml(plaque.name || plaque.id)}</p>
             </div>
           </div>
         `;
@@ -120,13 +141,18 @@ async function renderApp() {
         }, 200);
         return;
       } else {
-        window.location.hash = `#/activate/${route.params.id}`;
+        window.location.hash = `#/activate/${encodeURIComponent(route.params.id)}`;
         return;
       }
     }
 
     // 2. Tela Pública de Ativação (SEM SIDEBAR DE ADMIN)
     if (route.name === 'activate') {
+      // Hidratação sob demanda caso a placa não esteja na memória
+      if (!storage.getPlaqueById(route.params.id)) {
+        await storage.fetchPlaqueFromCloud(route.params.id);
+      }
+
       appEl.innerHTML = `
         <main style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F8FAFC; padding: 1.5rem 1rem;">
           ${renderActivationView(route.params.id)}
@@ -139,6 +165,10 @@ async function renderApp() {
 
     // 3. Portal do Comprador / Cliente (SEM SIDEBAR DE ADMIN)
     if (route.name === 'cliente') {
+      if (route.params?.code && !storage.getClientByCode(route.params.code)) {
+        await storage.fetchClientFromCloud(route.params.code);
+      }
+
       appEl.innerHTML = `
         ${renderClientPortalView({
           clientCode: route.params?.code,

@@ -1,7 +1,7 @@
 // Placa QR Pro - Data Storage & Persistence Service
 // Sincronização em Tempo Real (Supabase Cloud + Local API + IndexedDB + LocalStorage Fallback)
 // Arquitetura Ultra Otimizada para 10.000+ Placas e 300+ Usuários Simultâneos com Lookups O(1)
-import { getReversedPhoneCode, isValidHttpUrl, sha256Hex } from '../utils/helpers.js';
+import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex } from '../utils/helpers.js';
 import { idb } from './db.js';
 
 const STORAGE_KEY = 'placa_qrcode_pro_data_v5';
@@ -735,12 +735,86 @@ class StorageService {
     return { success: true };
   }
 
+  // Busca direta de plaquinha no Supabase Cloud (garante acesso mesmo antes de sync completo)
+  async fetchPlaqueFromCloud(id) {
+    if (!id) return null;
+    const cleanId = String(id).trim().toUpperCase();
+    const local = this.getPlaqueById(cleanId);
+    if (local) return local;
+
+    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      try {
+        const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(cleanId)}&select=*`, {
+          headers: {
+            'apikey': this.settings.supabaseKey,
+            'Authorization': `Bearer ${this.settings.supabaseKey}`
+          }
+        }, 3500);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const cloudPlaque = data[0];
+            this.plaquesMap.set(cloudPlaque.id.toUpperCase(), cloudPlaque);
+            if (!this.plaques.some(p => p.id.toUpperCase() === cloudPlaque.id.toUpperCase())) {
+              this.plaques.unshift(cloudPlaque);
+            }
+            this.invalidateCache();
+            this.saveToDisk(this.plaques);
+            return cloudPlaque;
+          }
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  // Busca direta de cliente no Supabase Cloud
+  async fetchClientFromCloud(codeOrPhone) {
+    if (!codeOrPhone) return null;
+    const local = this.getClientByCode(codeOrPhone);
+    if (local) return local;
+
+    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      try {
+        const clean = String(codeOrPhone).trim();
+        const cleanDigits = clean.replace(/\D/g, '');
+        const reversed = cleanDigits ? cleanDigits.split('').reverse().join('') : '';
+
+        const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?or=(client_code.eq.${encodeURIComponent(clean)},client_code.eq.${encodeURIComponent(cleanDigits)},client_code.eq.${encodeURIComponent(reversed)},client_phone.eq.${encodeURIComponent(clean)})&select=*`, {
+          headers: {
+            'apikey': this.settings.supabaseKey,
+            'Authorization': `Bearer ${this.settings.supabaseKey}`
+          }
+        }, 3500);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach(p => {
+              this.plaquesMap.set(p.id.toUpperCase(), p);
+              if (!this.plaques.some(item => item.id.toUpperCase() === p.id.toUpperCase())) {
+                this.plaques.unshift(p);
+              }
+            });
+            this.invalidateCache();
+            this.saveToDisk(this.plaques);
+            return this.getClientByCode(codeOrPhone);
+          }
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   async activatePlaque(id, { name, targetUrl, pin, clientName, clientPhone, clientCode }) {
-    const plaque = this.getPlaqueById(id);
+    let plaque = this.getPlaqueById(id);
+    if (!plaque) {
+      plaque = await this.fetchPlaqueFromCloud(id);
+    }
     if (!plaque) return { success: false, error: 'Código de plaquinha não encontrado.' };
 
-    if (!isValidHttpUrl(targetUrl)) {
-      return { success: false, error: 'Link de avaliação inválido. Insira uma URL completa iniciando com https://' };
+    const cleanUrl = sanitizeUrl(targetUrl);
+    if (!isValidHttpUrl(cleanUrl)) {
+      return { success: false, error: 'Link de avaliação inválido. Insira um link válido (ex: https://g.page/r/... ou link da sua empresa).' };
     }
 
     // Validação de PIN de segurança caso a placa já esteja ativa
@@ -751,7 +825,7 @@ class StorageService {
     const calculatedCode = clientCode || (clientPhone ? getReversedPhoneCode(clientPhone) : (plaque.client_code || ''));
 
     plaque.name = name ? String(name).trim() : plaque.name || 'Empresa Cadastrada';
-    plaque.target_url = String(targetUrl).trim();
+    plaque.target_url = cleanUrl;
     plaque.status = 'active';
     plaque.activated_at = new Date().toISOString();
     if (pin) plaque.pin = String(pin).trim();
@@ -777,11 +851,17 @@ class StorageService {
   }
 
   async updatePlaque(id, updates) {
-    const plaque = this.getPlaqueById(id);
+    let plaque = this.getPlaqueById(id);
+    if (!plaque) {
+      plaque = await this.fetchPlaqueFromCloud(id);
+    }
     if (!plaque) return null;
 
-    if (updates.target_url && !isValidHttpUrl(updates.target_url)) {
-      throw new Error('Link de destino inválido. Use um link completo com https://');
+    if (updates.target_url) {
+      updates.target_url = sanitizeUrl(updates.target_url);
+      if (!isValidHttpUrl(updates.target_url)) {
+        throw new Error('Link de destino inválido. Use um link válido.');
+      }
     }
 
     Object.assign(plaque, updates);

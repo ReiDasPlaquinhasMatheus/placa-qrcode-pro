@@ -37,12 +37,26 @@ export async function sha256Hex(message) {
 }
 
 /**
+ * Sanitiza e adiciona https:// automaticamente se o usuário não tiver digitado o protocolo
+ */
+export function sanitizeUrl(string) {
+  if (!string || typeof string !== 'string') return '';
+  let trimmed = string.trim();
+  if (!trimmed) return '';
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = 'https://' + trimmed;
+  }
+  return trimmed;
+}
+
+/**
  * Validação rigorosa de URLs HTTP/HTTPS seguras (impede javascript:, data:, etc.)
  */
 export function isValidHttpUrl(string) {
   if (!string || typeof string !== 'string') return false;
   try {
-    const url = new URL(string.trim());
+    const formatted = sanitizeUrl(string);
+    const url = new URL(formatted);
     return url.protocol === 'http:' || url.protocol === 'https:';
   } catch (_) {
     return false;
