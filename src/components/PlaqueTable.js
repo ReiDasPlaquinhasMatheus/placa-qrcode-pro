@@ -288,7 +288,21 @@ export function renderPlaqueTable({
               </tr>
             </thead>
             <tbody>
-              ${filtered.length === 0 ? `
+              ${total === 0 ? `
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--color-text-muted);">
+                      ${getIcon('qrcode', '', 24)}
+                    </div>
+                    <div style="font-weight: 600; font-size: 1rem; color: var(--color-text); margin-bottom: 4px;">Nenhuma plaquinha cadastrada ainda</div>
+                    <p class="text-xs text-muted mb-4">Emita seu primeiro lote de QR Codes para abastecer seu estoque.</p>
+                    <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                      ${getIcon('plus', '', 14)}
+                      <span>Emitir Primeiro Lote</span>
+                    </a>
+                  </td>
+                </tr>
+              ` : filtered.length === 0 ? `
                 <tr>
                   <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
                     <div style="margin-bottom: 8px; opacity: 0.4;">${getIcon('search', '', 32)}</div>

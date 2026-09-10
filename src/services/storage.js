@@ -11,68 +11,7 @@ const SETTINGS_KEY = 'placa_qrcode_pro_settings_v5';
 const DEFAULT_ADMIN_USER = 'Matheus';
 const DEFAULT_ADMIN_HASH = '926e64810cf9b064d7098f910baf556a387300d31ef8aaa83327f34f1d9fca37';
 
-const DEFAULT_SEED_PLAQUES = [
-  {
-    id: 'PLQ-001',
-    name: 'Pizzaria Bella Napoli',
-    status: 'active',
-    target_url: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
-    pin: '1234',
-    client_name: 'Marcos Silva',
-    client_phone: '(11) 98765-4321',
-    client_code: '12345678911',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    activated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-    scans_count: 142,
-    last_scan_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    batch_name: 'Lote 01'
-  },
-  {
-    id: 'PLQ-002',
-    name: 'Barbearia Vintage Club',
-    status: 'active',
-    target_url: 'https://search.google.com/local/writereview?placeid=ChIJQ1t_tDeuEmsRUsoyG83frY5',
-    pin: '5678',
-    client_name: 'Carlos Santos',
-    client_phone: '(21) 99888-7766',
-    client_code: '66778889912',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-    activated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-    scans_count: 89,
-    last_scan_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    batch_name: 'Lote 01'
-  },
-  {
-    id: 'PLQ-003',
-    name: '',
-    status: 'virgin',
-    target_url: '',
-    pin: '9012',
-    client_name: '',
-    client_phone: '',
-    client_code: '',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-    activated_at: null,
-    scans_count: 0,
-    last_scan_at: null,
-    batch_name: 'Lote 02'
-  },
-  {
-    id: 'PLQ-004',
-    name: '',
-    status: 'virgin',
-    target_url: '',
-    pin: '3456',
-    client_name: '',
-    client_phone: '',
-    client_code: '',
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-    activated_at: null,
-    scans_count: 0,
-    last_scan_at: null,
-    batch_name: 'Lote 02'
-  }
-];
+const DEFAULT_SEED_PLAQUES = [];
 
 class StorageService {
   constructor() {
