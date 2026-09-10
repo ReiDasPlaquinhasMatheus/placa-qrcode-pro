@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Redirecionamento instantâneo serverless para a função do Netlify
+[[redirects]]
+  from = "/r/:id"
+  to = "/.netlify/functions/redirect?id=:id"
+  status = 302
+
+# Fallback SPA para navegação direta no painel e na tela de ativação
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
