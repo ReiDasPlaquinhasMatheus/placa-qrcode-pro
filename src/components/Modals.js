@@ -178,3 +178,68 @@ export function renderDeployGuideModal() {
   `;
 }
 
+// Modal de Progresso em Tempo Real durante Geração de Lotes / ZIP
+export function renderProgressModal({ title = 'Gerando Pacote de Arquivos', current = 0, total = 0, percent = 0, message = 'Processando plaquinhas...' }) {
+  return `
+    <div class="modal-overlay" id="progress-modal" style="z-index: 9999;">
+      <div class="modal-box text-center" style="max-width: 440px;">
+        
+        <div style="width: 48px; height: 48px; background: #EEF2FF; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: #4F46E5;">
+          ${getIcon('download', '', 24)}
+        </div>
+
+        <h3 id="progress-modal-title" style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">
+          ${escapeHtml(title)}
+        </h3>
+
+        <p id="progress-modal-message" class="text-xs text-muted mb-4">
+          ${escapeHtml(message)}
+        </p>
+
+        <!-- Barra de Progresso Animada -->
+        <div style="background: #F1F5F9; height: 10px; border-radius: 999px; overflow: hidden; margin-bottom: 0.75rem; border: 1px solid #E2E8F0;">
+          <div id="progress-bar-fill" style="background: linear-gradient(90deg, #3B82F6, #2563EB); height: 100%; width: ${percent}%; border-radius: 999px; transition: width 0.15s ease;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+          <span id="progress-modal-count">${current} / ${total} gerados</span>
+          <span id="progress-modal-percent">${percent}%</span>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+// Modal de Confirmação para Excluir Lote
+export function renderConfirmDeleteBatchModal(batchName, plaqueCount = 0) {
+  return `
+    <div class="modal-overlay" id="delete-batch-modal" data-batch="${escapeHtml(batchName)}">
+      <div class="modal-box" style="max-width: 460px;">
+        
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 1rem;">
+          <div style="width: 40px; height: 40px; background: #FEE2E2; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #DC2626; flex-shrink: 0;">
+            ${getIcon('trash', '', 20)}
+          </div>
+          <div>
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: #DC2626; margin-bottom: 4px;">Excluir Pasta de Lote</h3>
+            <p class="text-xs text-muted">Esta ação excluirá permanentemente a pasta e todas as plaquinhas vinculadas a ela.</p>
+          </div>
+        </div>
+
+        <div class="p-3 mb-4" style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 6px; font-size: 0.8125rem;">
+          <div style="font-weight: 600; color: #991B1B; margin-bottom: 2px;">Lote selecionado: <strong>${escapeHtml(batchName)}</strong></div>
+          <div class="text-xs" style="color: #7F1D1D;">Total de plaquinhas que serão removidas: <strong>${plaqueCount}</strong></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-ghost btn-sm btn-close-modal">Cancelar</button>
+          <button type="button" id="btn-confirm-delete-batch" class="btn btn-primary btn-sm" style="background: #DC2626; border-color: #DC2626;">
+            Sim, Excluir Lote
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+}

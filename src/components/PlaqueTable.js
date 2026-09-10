@@ -133,6 +133,10 @@ export function renderPlaqueTable({
               ${getIcon('download', '', 14)}
               <span>Baixar Lote ZIP</span>
             </button>
+            <button class="btn btn-secondary btn-sm btn-delete-batch-action" data-batch="${escapeHtml(batchName)}" style="display: inline-flex; align-items: center; gap: 6px; color: #DC2626; border-color: #FECACA;" title="Excluir este lote e suas plaquinhas">
+              ${getIcon('trash', '', 14)}
+              <span>Excluir Lote</span>
+            </button>
             <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
               ${getIcon('plus', '', 14)}
               <span>Emitir Mais</span>

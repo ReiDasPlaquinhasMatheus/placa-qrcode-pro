@@ -281,6 +281,10 @@ class StorageService {
     }
   }
 
+  async initServerSync() {
+    return this.initCloudAndServerSync();
+  }
+
   async initCloudAndServerSync() {
     // 1. Tenta carregar do Supabase Cloud se as credenciais estiverem ativas
     if (this.settings.supabaseUrl && this.settings.supabaseKey) {
@@ -500,18 +504,102 @@ class StorageService {
     return this.plaquesMap.get(cleanId) || null;
   }
 
-  // Criação em Massa Ultra Otimizada (Suporta 10.000 placas em milissegundos)
-  async createBatch({ prefix = 'PLQ-', startNumber = 1, count = 10, batchName = 'Lote 01' }) {
-    const newPlaques = [];
+  // Calcula o próximo número sequencial verdadeiramente disponível para um prefixo
+  getNextAvailableNumber(prefix = 'PLQ-') {
+    const cleanPrefix = String(prefix || 'PLQ-').toUpperCase().trim();
+    let maxNumber = 0;
+
+    for (let i = 0; i < this.plaques.length; i++) {
+      const pId = (this.plaques[i]?.id || '').toUpperCase();
+      if (pId.startsWith(cleanPrefix)) {
+        const numPart = pId.substring(cleanPrefix.length).replace(/\D/g, '');
+        if (numPart) {
+          const val = parseInt(numPart, 10);
+          if (!isNaN(val) && val > maxNumber) {
+            maxNumber = val;
+          }
+        }
+      }
+    }
+
+    return maxNumber + 1;
+  }
+
+  // Validação prévia de disponibilidade de intervalo de IDs
+  checkRangeAvailability(prefix = 'PLQ-', startNumber = 1, count = 10) {
+    const cleanPrefix = String(prefix || 'PLQ-').toUpperCase().trim();
     const currentNum = parseInt(startNumber, 10) || 1;
-    const padLength = Math.max(3, String(currentNum + count).length);
+    const totalCount = Math.max(1, parseInt(count, 10) || 1);
+    const endNum = currentNum + totalCount - 1;
+    const padLength = Math.max(3, String(endNum).length);
+
+    const existingIds = [];
+    const firstId = `${cleanPrefix}${String(currentNum).padStart(padLength, '0')}`;
+    const lastId = `${cleanPrefix}${String(endNum).padStart(padLength, '0')}`;
+
+    for (let i = 0; i < totalCount; i++) {
+      const num = currentNum + i;
+      const formattedNum = String(num).padStart(padLength, '0');
+      const plaqueId = `${cleanPrefix}${formattedNum}`;
+
+      // Verifica no formato atual e também em variações de padding comuns (3 e 4 dígitos)
+      if (
+        this.plaquesMap.has(plaqueId) ||
+        this.plaquesMap.has(`${cleanPrefix}${String(num).padStart(3, '0')}`) ||
+        this.plaquesMap.has(`${cleanPrefix}${String(num).padStart(4, '0')}`)
+      ) {
+        existingIds.push(plaqueId);
+      }
+    }
+
+    return {
+      available: existingIds.length === 0,
+      existingIds,
+      firstId,
+      lastId,
+      totalRequested: totalCount,
+      availableCount: totalCount - existingIds.length,
+      suggestedStart: this.getNextAvailableNumber(cleanPrefix)
+    };
+  }
+
+  // Criação em Massa Ultra Otimizada com Proteção Anti-Colisão
+  async createBatch({ prefix = 'PLQ-', startNumber, count = 10, batchName = 'Lote 01', collisionMode = 'auto-next' }) {
+    const cleanPrefix = String(prefix || 'PLQ-').toUpperCase().trim();
+    const cleanBatchName = String(batchName || 'Lote').trim();
+    let currentNum = parseInt(startNumber, 10);
+
+    if (isNaN(currentNum) || currentNum < 1) {
+      currentNum = this.getNextAvailableNumber(cleanPrefix);
+    }
+
+    const totalCount = Math.max(1, parseInt(count, 10) || 10);
+
+    // Verificação de colisão
+    const availability = this.checkRangeAvailability(cleanPrefix, currentNum, totalCount);
+
+    if (!availability.available) {
+      if (collisionMode === 'error') {
+        const conflictSample = availability.existingIds.slice(0, 4).join(', ');
+        const extra = availability.existingIds.length > 4 ? ` e mais ${availability.existingIds.length - 4}` : '';
+        throw new Error(`Conflito de códigos: [${conflictSample}${extra}] já existem no sistema. Utilize o próximo número livre sugerido: #${availability.suggestedStart}.`);
+      } else if (collisionMode === 'auto-next') {
+        // Ajusta automaticamente para o próximo número livre
+        currentNum = availability.suggestedStart;
+      }
+    }
+
+    const newPlaques = [];
+    const endNum = currentNum + totalCount - 1;
+    const padLength = Math.max(3, String(endNum).length);
     const nowIso = new Date().toISOString();
 
-    for (let i = 0; i < count; i++) {
-      const formattedNum = String(currentNum + i).padStart(padLength, '0');
-      const plaqueId = `${prefix}${formattedNum}`.toUpperCase();
+    for (let i = 0; i < totalCount; i++) {
+      const num = currentNum + i;
+      const formattedNum = String(num).padStart(padLength, '0');
+      const plaqueId = `${cleanPrefix}${formattedNum}`;
 
-      // Verificação instantânea O(1)
+      // Garante que não duplica se já existir
       if (!this.plaquesMap.has(plaqueId)) {
         const pin = String(Math.floor(1000 + Math.random() * 9000));
         const plaque = {
@@ -527,18 +615,23 @@ class StorageService {
           activated_at: null,
           scans_count: 0,
           last_scan_at: null,
-          batch_name: batchName
+          batch_name: cleanBatchName
         };
         newPlaques.push(plaque);
         this.plaquesMap.set(plaqueId, plaque);
       }
     }
 
+    if (newPlaques.length === 0) {
+      const nextFree = this.getNextAvailableNumber(cleanPrefix);
+      throw new Error(`Nenhum código novo foi gerado pois os IDs solicitados já existem. Utilize o próximo número disponível: #${nextFree}.`);
+    }
+
     // Prepend dos novos itens
     this.plaques = [...newPlaques, ...this.plaques];
     this.invalidateCache();
 
-    // Persistência assíncrona
+    // Persistência assíncrona local (IndexedDB + LocalStorage)
     this.saveToDisk(this.plaques);
 
     // Enfileira sincronização para nuvem
@@ -553,6 +646,93 @@ class StorageService {
     } catch (e) {}
 
     return newPlaques;
+  }
+
+  // Exclusão completa de lote (Sincronizado com IndexedDB, LocalStorage, Supabase Cloud e Servidor)
+  async deleteBatch(batchName) {
+    if (!batchName) return { success: false, error: 'Nome do lote inválido.' };
+    const cleanName = String(batchName).trim().toLowerCase();
+
+    const initialCount = this.plaques.length;
+    const remainingPlaques = [];
+    const deletedIds = [];
+
+    for (let i = 0; i < initialCount; i++) {
+      const p = this.plaques[i];
+      const pBatch = (p.batch_name || 'Lote Geral').trim().toLowerCase();
+      if (pBatch === cleanName) {
+        deletedIds.push(p.id);
+        this.plaquesMap.delete(p.id.toUpperCase());
+      } else {
+        remainingPlaques.push(p);
+      }
+    }
+
+    const deletedCount = deletedIds.length;
+    if (deletedCount === 0) {
+      return { success: false, error: 'Nenhuma plaquinha encontrada neste lote.' };
+    }
+
+    this.plaques = remainingPlaques;
+    this.invalidateCache();
+    this.saveToDisk(this.plaques);
+
+    // Sincroniza exclusão no Supabase Cloud
+    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      try {
+        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?batch_name=eq.${encodeURIComponent(batchName.trim())}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': this.settings.supabaseKey,
+            'Authorization': `Bearer ${this.settings.supabaseKey}`
+          }
+        }, 5000);
+      } catch (e) {
+        console.warn('Aviso: Falha ao deletar lote no Supabase Cloud:', e);
+      }
+    }
+
+    // Sincroniza com servidor local
+    try {
+      fetch(`/api/batches/${encodeURIComponent(batchName.trim())}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+
+    return { success: true, count: deletedCount };
+  }
+
+  // Exclusão de uma única placa
+  async deletePlaque(plaqueId) {
+    if (!plaqueId) return { success: false, error: 'ID da placa inválido.' };
+    const cleanId = String(plaqueId).trim().toUpperCase();
+
+    if (!this.plaquesMap.has(cleanId)) {
+      return { success: false, error: 'Plaquinha não encontrada.' };
+    }
+
+    this.plaquesMap.delete(cleanId);
+    this.plaques = this.plaques.filter(p => (p.id || '').toUpperCase() !== cleanId);
+    this.invalidateCache();
+    this.saveToDisk(this.plaques);
+
+    // Sincroniza com Supabase Cloud
+    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      try {
+        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(cleanId)}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': this.settings.supabaseKey,
+            'Authorization': `Bearer ${this.settings.supabaseKey}`
+          }
+        }, 4000);
+      } catch (e) {}
+    }
+
+    // Sincroniza com servidor local
+    try {
+      fetch(`/api/plaques/${encodeURIComponent(cleanId)}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+
+    return { success: true };
   }
 
   async activatePlaque(id, { name, targetUrl, pin, clientName, clientPhone, clientCode }) {

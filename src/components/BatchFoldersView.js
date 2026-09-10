@@ -198,14 +198,17 @@ export function renderBatchFoldersView({
                 </div>
 
                 <!-- Ações da Pasta -->
-                <div style="display: flex; gap: 8px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                <div style="display: flex; gap: 6px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); align-items: center;">
                   <a href="#/lote/${encodedName}" class="btn btn-primary btn-sm flex-1" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <span>Abrir Pasta</span>
                     ${getIcon('arrowRight', '', 14)}
                   </a>
-                  <button class="btn btn-secondary btn-sm btn-download-batch-zip" data-batch="${escapeHtml(batch.name)}" title="Baixar ZIP exclusivo deste lote" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <button class="btn btn-secondary btn-sm btn-download-batch-zip" data-batch="${escapeHtml(batch.name)}" title="Baixar ZIP exclusivo deste lote" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px;">
                     ${getIcon('download', '', 14)}
                     <span>ZIP</span>
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-delete-batch-action" data-batch="${escapeHtml(batch.name)}" title="Excluir este lote" style="color: #DC2626; padding: 4px 6px;">
+                    ${getIcon('trash', '', 14)}
                   </button>
                 </div>
 

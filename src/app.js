@@ -10,7 +10,7 @@ import { renderBatchGenerator } from './components/BatchGenerator.js';
 import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderSettingsView } from './components/SettingsView.js';
-import { renderEditModal, renderQRModal, renderDeployGuideModal } from './components/Modals.js';
+import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl } from './utils/helpers.js';
@@ -655,26 +655,75 @@ function setupEventListeners() {
     });
   }
 
-  // Formulário de Criação de Lotes
+  // Excluir Lote Completo
+  document.querySelectorAll('.btn-delete-batch-action').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const batchName = e.currentTarget.dataset.batch;
+      if (!batchName) return;
+      const plaques = storage.getPlaquesByBatch(batchName);
+      modalContainer.innerHTML = renderConfirmDeleteBatchModal(batchName, plaques.length);
+      setupModalListeners();
+    });
+  });
+
+  // Formulário de Criação de Lotes com Proteção Anti-Colisão e Progresso Visual
   const formBatch = document.getElementById('form-batch-create');
   if (formBatch) {
     const prefixInput = document.getElementById('batch-prefix');
     const startInput = document.getElementById('batch-start');
     const countInput = document.getElementById('batch-count');
     const previewRange = document.getElementById('preview-range');
+    const statusBox = document.getElementById('availability-status-box');
+    const messageEl = document.getElementById('availability-message');
+    const btnUseSuggested = document.getElementById('btn-use-suggested-start');
+    const labelSuggested = document.getElementById('label-suggested-num');
+    const btnSubmitZip = document.getElementById('btn-submit-batch-zip');
+    const btnSubmitOnly = document.getElementById('btn-submit-batch-only');
 
     const updateRangePreview = () => {
-      const prefix = prefixInput.value || 'PLQ-';
+      if (!prefixInput || !startInput || !countInput) return;
+      const prefix = (prefixInput.value || 'PLQ-').toUpperCase().trim();
       const start = parseInt(startInput.value, 10) || 1;
       const count = parseInt(countInput.value, 10) || 10;
-      const end = start + count - 1;
-      const padLen = Math.max(3, String(end).length);
-      previewRange.textContent = `${prefix}${String(start).padStart(padLen, '0')} até ${prefix}${String(end).padStart(padLen, '0')} (${count} códigos)`;
+      
+      const availability = storage.checkRangeAvailability(prefix, start, count);
+      
+      if (previewRange) {
+        previewRange.textContent = `${availability.firstId} até ${availability.lastId} (${count} plaquinhas)`;
+      }
+
+      if (statusBox && messageEl) {
+        if (availability.available) {
+          statusBox.style.background = '#F0FDF4';
+          statusBox.style.borderColor = '#BBF7D0';
+          messageEl.style.color = '#166534';
+          messageEl.innerHTML = `${getIcon('checkCircle', 'text-green', 14)} <span>Todos os ${count} códigos estão disponíveis e livres para emissão.</span>`;
+          if (btnUseSuggested) btnUseSuggested.style.display = 'none';
+        } else {
+          statusBox.style.background = '#FFFBEB';
+          statusBox.style.borderColor = '#FDE68A';
+          messageEl.style.color = '#92400E';
+          messageEl.innerHTML = `${getIcon('alertTriangle', 'text-amber', 14)} <span>Atenção: ${availability.existingIds.length} código(s) deste intervalo já existem no sistema.</span>`;
+          if (btnUseSuggested && labelSuggested) {
+            labelSuggested.textContent = availability.suggestedStart;
+            btnUseSuggested.style.display = 'inline-block';
+          }
+        }
+      }
     };
 
     prefixInput.addEventListener('input', updateRangePreview);
     startInput.addEventListener('input', updateRangePreview);
     countInput.addEventListener('input', updateRangePreview);
+
+    if (btnUseSuggested) {
+      btnUseSuggested.addEventListener('click', () => {
+        const prefix = (prefixInput.value || 'PLQ-').toUpperCase().trim();
+        const next = storage.getNextAvailableNumber(prefix);
+        startInput.value = next;
+        updateRangePreview();
+      });
+    }
 
     document.querySelectorAll('.btn-count-preset').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -687,33 +736,74 @@ function setupEventListeners() {
       });
     });
 
-    formBatch.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const batchName = document.getElementById('batch-name').value;
-      const prefix = prefixInput.value.trim() || 'PLQ-';
-      const startNumber = parseInt(startInput.value, 10) || 1;
-      const count = parseInt(countInput.value, 10) || 10;
+    const handleCreateBatch = async (downloadZip = true) => {
+      const batchName = document.getElementById('batch-name')?.value?.trim() || 'Lote 01';
+      const prefix = (prefixInput?.value || 'PLQ-').toUpperCase().trim();
+      const startNumber = parseInt(startInput?.value, 10) || 1;
+      const count = parseInt(countInput?.value, 10) || 10;
 
-      const submitBtn = document.getElementById('btn-submit-batch');
-      submitBtn.textContent = 'Gerando códigos e pacote ZIP...';
-      submitBtn.disabled = true;
+      if (btnSubmitZip) btnSubmitZip.disabled = true;
+      if (btnSubmitOnly) btnSubmitOnly.disabled = true;
 
       try {
+        if (downloadZip) {
+          modalContainer.innerHTML = renderProgressModal({
+            title: 'Emitindo Lote e Gerando Pacote ZIP',
+            current: 0,
+            total: count,
+            percent: 0,
+            message: 'Registrando plaquinhas no banco de dados...'
+          });
+        }
+
         const newPlaques = await storage.createBatch({
           prefix,
           startNumber,
           count,
-          batchName
+          batchName,
+          collisionMode: 'auto-next'
         });
 
-        await exportBatchZip(newPlaques, batchName.replace(/\s+/g, '-'));
+        if (downloadZip) {
+          const barFill = document.getElementById('progress-bar-fill');
+          const countEl = document.getElementById('progress-modal-count');
+          const percentEl = document.getElementById('progress-modal-percent');
+          const msgEl = document.getElementById('progress-modal-message');
+
+          await exportBatchZip(newPlaques, batchName.replace(/\s+/g, '-'), (curr, tot, plaqueId, pct) => {
+            if (barFill) barFill.style.width = `${pct}%`;
+            if (countEl) countEl.textContent = `${curr} / ${tot} gerados`;
+            if (percentEl) percentEl.textContent = `${pct}%`;
+            if (msgEl) {
+              msgEl.textContent = plaqueId === 'compactando' 
+                ? 'Compactando pacote ZIP para download...' 
+                : `Renderizando QR Code em alta resolução (${plaqueId})...`;
+            }
+          });
+
+          modalContainer.innerHTML = '';
+        }
+
         window.location.hash = `#/lote/${encodeURIComponent(batchName)}`;
       } catch (err) {
-        alert('Erro ao criar lote: ' + err.message);
-        submitBtn.textContent = 'Gerar Lote e Baixar ZIP';
-        submitBtn.disabled = false;
+        modalContainer.innerHTML = '';
+        alert('Erro ao processar lote: ' + err.message);
+        if (btnSubmitZip) btnSubmitZip.disabled = false;
+        if (btnSubmitOnly) btnSubmitOnly.disabled = false;
       }
+    };
+
+    formBatch.addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleCreateBatch(true);
     });
+
+    if (btnSubmitOnly) {
+      btnSubmitOnly.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleCreateBatch(false);
+      });
+    }
   }
 
   // Formulário de Ativação do Cliente
@@ -1049,6 +1139,32 @@ function setupModalListeners() {
       setTimeout(() => { btn.textContent = 'Copiar'; }, 1800);
     });
   });
+
+  // Confirmação de Exclusão de Lote
+  const btnConfirmDelete = document.getElementById('btn-confirm-delete-batch');
+  if (btnConfirmDelete) {
+    btnConfirmDelete.addEventListener('click', async () => {
+      const modal = document.getElementById('delete-batch-modal');
+      const batchName = modal?.dataset.batch;
+      if (!batchName) return;
+
+      btnConfirmDelete.disabled = true;
+      btnConfirmDelete.textContent = 'Excluindo lote...';
+
+      const res = await storage.deleteBatch(batchName);
+      closeModal();
+
+      if (res.success) {
+        if (window.location.hash.startsWith('#/lote/')) {
+          window.location.hash = '#/lotes';
+        } else {
+          renderApp();
+        }
+      } else {
+        alert(res.error || 'Erro ao excluir lote.');
+      }
+    });
+  }
 }
 
 // Fechar modal com a tecla ESC

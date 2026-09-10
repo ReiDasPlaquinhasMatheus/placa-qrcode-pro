@@ -47,12 +47,16 @@ export function exportBatchCsv(plaques, filename = 'plaquinhas-export.csv') {
 
 // Exportar Lote em arquivo ZIP com Proteção de Memória e Chunking Assíncrono
 export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProgress = () => {}) {
+  if (!Array.isArray(plaques) || plaques.length === 0) {
+    throw new Error('Nenhuma plaquinha disponível para exportar no pacote ZIP.');
+  }
+
   const total = plaques.length;
 
   // Se o lote for muito massivo (> 500 imagens de 1000px), avisa e limita para não estourar RAM do navegador
-  if (total > 500) {
-    const proceed = confirm(`Atenção: Você está tentando exportar ${total} imagens de alta resolução em um único arquivo ZIP.\n\nIsso pode consumir bastante memória do navegador.\n\nDeseja continuar com o download do ZIP completo? (Dica: Você também pode usar a exportação rápida em CSV).`);
-    if (!proceed) return;
+  if (total > 500 && typeof window !== 'undefined' && typeof window.confirm === 'function') {
+    const proceed = window.confirm(`Atenção: Você está tentando exportar ${total} imagens de alta resolução em um único arquivo ZIP.\n\nIsso pode consumir bastante memória do navegador.\n\nDeseja continuar com o download do ZIP completo? (Dica: Você também pode usar a exportação rápida em CSV).`);
+    if (!proceed) return { cancelled: true };
   }
 
   const zip = new JSZip();
@@ -64,7 +68,8 @@ export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProg
 
   for (let i = 0; i < total; i++) {
     const plaque = plaques[i];
-    onProgress(i + 1, total, plaque.id);
+    const percent = Math.round(((i + 1) / total) * 100);
+    onProgress(i + 1, total, plaque.id, percent);
 
     // 1. Gera PNG em Alta Resolução (1000px com ID no rodapé)
     const qrPngUrl = await generateCleanQRCodePng(plaque.id, 1000, true);
@@ -79,10 +84,8 @@ export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProg
 
     csvContent += `"${plaque.id}","${plaque.name || 'Virgem'}","${plaque.status}","${plaque.pin || ''}","${origin}/r/${plaque.id}","${plaque.batch_name || batchName}"\n`;
 
-    // Cede o controle ao event loop a cada 20 itens para manter a UI fluida
-    if (i % 20 === 0) {
-      await new Promise(r => setTimeout(r, 0));
-    }
+    // Cede o controle ao event loop para atualizar a barra de progresso na interface
+    await new Promise(r => setTimeout(r, 4));
   }
 
   // Adiciona CSV de controle
@@ -103,13 +106,19 @@ Arquivos neste pacote:
   zip.file('LEIA-ME.txt', readme);
 
   // Gera e dispara download
+  onProgress(total, total, 'compactando', 100);
   const blob = await zip.generateAsync({ type: 'blob' });
-  const downloadUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = downloadUrl;
-  a.download = `${batchName}-${total}-qrcodes.zip`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(downloadUrl);
+  
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const downloadUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${batchName}-${total}-qrcodes.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(downloadUrl);
+  }
+
+  return { success: true, count: total };
 }
