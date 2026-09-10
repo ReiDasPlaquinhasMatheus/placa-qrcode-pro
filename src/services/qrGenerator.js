@@ -113,3 +113,8 @@ export async function generateCleanQRCodeSvg(plaqueId, includeLabel = true) {
   </text>
 </svg>`;
 }
+
+// Aliases para máxima compatibilidade entre componentes
+export const generateQRCodeDataUrl = generateCleanQRCodePng;
+export const generatePlaqueDesignSvg = generateCleanQRCodeSvg;
+

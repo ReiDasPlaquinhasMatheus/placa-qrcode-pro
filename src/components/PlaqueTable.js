@@ -397,10 +397,11 @@ export function renderPlaqueTable({
 
         <!-- Barra de Paginação -->
         ${renderPagination({
-          currentPage: validPage,
-          totalPages: totalPages,
           totalItems: totalFiltered,
-          perPage: perPage
+          currentPage: validPage,
+          perPage: perPage,
+          entityName: 'plaquinhas',
+          idPrefix: 'plaque'
         })}
       </div>
 

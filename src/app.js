@@ -321,7 +321,7 @@ function setupEventListeners() {
   // ==========================================
   // FILTROS & PAGINAÇÃO DA TABELA DE PLACAS
   // ==========================================
-  document.querySelectorAll('.btn-filter').forEach(btn => {
+  document.querySelectorAll('.filter-btn, .btn-filter').forEach(btn => {
     btn.addEventListener('click', (e) => {
       state.plaqueFilter = e.currentTarget.dataset.filter;
       state.plaquePage = 1;
@@ -329,7 +329,7 @@ function setupEventListeners() {
     });
   });
 
-  const selectBatchFilter = document.getElementById('select-filter-batch');
+  const selectBatchFilter = document.getElementById('filter-batch') || document.getElementById('select-filter-batch');
   if (selectBatchFilter) {
     selectBatchFilter.addEventListener('change', (e) => {
       state.plaqueBatchFilter = e.target.value;
@@ -338,7 +338,7 @@ function setupEventListeners() {
     });
   }
 
-  const selectClientFilter = document.getElementById('select-filter-client');
+  const selectClientFilter = document.getElementById('filter-client') || document.getElementById('select-filter-client');
   if (selectClientFilter) {
     selectClientFilter.addEventListener('change', (e) => {
       state.plaqueClientFilter = e.target.value;
@@ -347,18 +347,27 @@ function setupEventListeners() {
     });
   }
 
-  const selectSortBy = document.getElementById('select-sort-by');
+  const selectSortBy = document.getElementById('sort-by') || document.getElementById('select-sort-by');
   if (selectSortBy) {
     selectSortBy.addEventListener('change', (e) => {
       const parts = e.target.value.split(':');
       state.plaqueSortBy = parts[0] || 'created_at';
-      state.plaqueSortOrder = parts[1] || 'desc';
+      if (parts[1]) state.plaqueSortOrder = parts[1];
       state.plaquePage = 1;
       renderApp();
     });
   }
 
-  const searchInput = document.getElementById('input-search-plaques');
+  const btnToggleSortOrder = document.getElementById('btn-toggle-sort-order');
+  if (btnToggleSortOrder) {
+    btnToggleSortOrder.addEventListener('click', () => {
+      state.plaqueSortOrder = state.plaqueSortOrder === 'asc' ? 'desc' : 'asc';
+      state.plaquePage = 1;
+      renderApp();
+    });
+  }
+
+  const searchInput = document.getElementById('table-search') || document.getElementById('input-search-plaques');
   if (searchInput) {
     let debounceTimer;
     searchInput.addEventListener('input', (e) => {
@@ -367,7 +376,7 @@ function setupEventListeners() {
       state.plaquePage = 1;
       debounceTimer = setTimeout(() => {
         renderApp();
-        const inputAfter = document.getElementById('input-search-plaques');
+        const inputAfter = document.getElementById('table-search') || document.getElementById('input-search-plaques');
         if (inputAfter) {
           inputAfter.focus();
           inputAfter.setSelectionRange(inputAfter.value.length, inputAfter.value.length);
@@ -376,7 +385,7 @@ function setupEventListeners() {
     });
   }
 
-  const btnClearSearchInput = document.getElementById('btn-clear-search-input');
+  const btnClearSearchInput = document.getElementById('btn-clear-search') || document.getElementById('btn-clear-search-input');
   if (btnClearSearchInput) {
     btnClearSearchInput.addEventListener('click', () => {
       state.plaqueSearch = '';
@@ -385,8 +394,17 @@ function setupEventListeners() {
     });
   }
 
-  const btnClearPlaqueFilters = document.getElementById('btn-clear-plaque-filters');
-  const btnResetFiltersInline = document.getElementById('btn-reset-filters-inline');
+  const selectPerPage = document.getElementById('per-page-select');
+  if (selectPerPage) {
+    selectPerPage.addEventListener('change', (e) => {
+      state.plaquePerPage = parseInt(e.target.value, 10) || 25;
+      state.plaquePage = 1;
+      renderApp();
+    });
+  }
+
+  const btnClearPlaqueFilters = document.getElementById('btn-reset-filters') || document.getElementById('btn-clear-plaque-filters');
+  const btnResetFiltersInline = document.getElementById('btn-empty-reset') || document.getElementById('btn-reset-filters-table') || document.getElementById('btn-reset-filters-inline');
   const handleResetPlaqueFilters = () => {
     state.plaqueFilter = 'all';
     state.plaqueSearch = '';
@@ -583,6 +601,17 @@ function setupEventListeners() {
       state.activePlaqueId = id;
       modalContainer.innerHTML = renderEditModal(id);
       setupModalListeners();
+    });
+  });
+
+  document.querySelectorAll('.btn-reset-plaque').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (!id) return;
+      if (confirm(`Deseja realmente resetar a plaquinha ${id} para o estado Virgem (desvincular empresa e cliente)?`)) {
+        await storage.resetPlaque(id);
+        renderApp();
+      }
     });
   });
 
@@ -913,18 +942,34 @@ function setupEventListeners() {
   }
 
   // Gerador Auxiliar do Google
-  const btnGenGUrl = document.getElementById('btn-generate-google-url');
-  if (btnGenGUrl) {
-    btnGenGUrl.addEventListener('click', () => {
-      const input = document.getElementById('input-google-place-id').value;
-      const resultBox = document.getElementById('google-url-result');
-      const output = document.getElementById('output-google-url');
-      if (input.trim()) {
-        const url = buildGoogleReviewUrl(input);
-        output.value = url;
-        resultBox.classList.remove('hidden');
+  const helperInput = document.getElementById('helper-input-url');
+  const helperResultBox = document.getElementById('helper-result-box');
+  const helperOutput = document.getElementById('helper-generated-link');
+  const btnCopyHelper = document.getElementById('btn-copy-helper-link');
+  const btnTestHelper = document.getElementById('btn-test-helper-link');
+
+  if (helperInput) {
+    const updateHelperUrl = () => {
+      const val = helperInput.value.trim();
+      if (val) {
+        const url = buildGoogleReviewUrl(val);
+        if (helperOutput) helperOutput.value = url;
+        if (btnTestHelper) btnTestHelper.href = url;
+        if (helperResultBox) helperResultBox.classList.remove('hidden');
+      } else {
+        if (helperResultBox) helperResultBox.classList.add('hidden');
       }
-    });
+    };
+
+    helperInput.addEventListener('input', updateHelperUrl);
+
+    if (btnCopyHelper && helperOutput) {
+      btnCopyHelper.addEventListener('click', () => {
+        copyToClipboard(helperOutput.value);
+        btnCopyHelper.textContent = 'Copiado!';
+        setTimeout(() => { btnCopyHelper.textContent = 'Copiar'; }, 1800);
+      });
+    }
   }
 
   // Configurações

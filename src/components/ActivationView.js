@@ -1,4 +1,5 @@
 import { storage } from '../services/storage.js';
+import { escapeHtml } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 
 export function renderActivationView(plaqueId) {
@@ -9,7 +10,7 @@ export function renderActivationView(plaqueId) {
       <div class="container py-12" style="max-width: 480px; text-align: center;">
         <div class="card p-6">
           <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Código não encontrado</h2>
-          <p class="text-sm text-muted mb-4">O código <strong>${plaqueId || ''}</strong> não está cadastrado no sistema.</p>
+          <p class="text-sm text-muted mb-4">O código <strong>${escapeHtml(plaqueId || '')}</strong> não está cadastrado no sistema.</p>
           <a href="#/" class="btn btn-primary btn-sm">Ir para o Início</a>
         </div>
       </div>
@@ -25,7 +26,7 @@ export function renderActivationView(plaqueId) {
         <!-- Cabeçalho -->
         <div class="mb-5">
           <div class="badge ${isAlreadyActive ? 'badge-active' : 'badge-virgin'} mb-2 font-mono">
-            Plaquinha: ${plaque.id}
+            Plaquinha: ${escapeHtml(plaque.id)}
           </div>
           <h1 style="font-size: 1.375rem;">
             ${isAlreadyActive ? 'Atualizar Plaquinha QR Code' : 'Ativar Minha Plaquinha QR Code'}
@@ -39,13 +40,13 @@ export function renderActivationView(plaqueId) {
 
         ${isAlreadyActive ? `
           <div class="p-3 mb-4 text-xs" style="background: var(--bg-subtle); border-radius: 6px;">
-            <div class="font-medium text-main">${plaque.name || 'Empresa Cadastrada'}</div>
-            <div class="text-muted truncate mt-0.5">${plaque.target_url}</div>
+            <div class="font-medium text-main">${escapeHtml(plaque.name || 'Empresa Cadastrada')}</div>
+            <div class="text-muted truncate mt-0.5">${escapeHtml(plaque.target_url || '')}</div>
           </div>
         ` : ''}
 
         <!-- Formulário do Cliente -->
-        <form id="form-activate-plaque" data-id="${plaque.id}">
+        <form id="form-activate-plaque" data-id="${escapeHtml(plaque.id)}">
           
           <!-- Seção de Dados do Comprador/Responsável -->
           <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 1rem;">
@@ -61,7 +62,7 @@ export function renderActivationView(plaqueId) {
                 id="act-client-name" 
                 class="form-input" 
                 placeholder="Ex: Carlos Eduardo Silva" 
-                value="${plaque.client_name || ''}" 
+                value="${escapeHtml(plaque.client_name || '')}" 
                 required 
               />
             </div>
@@ -73,7 +74,7 @@ export function renderActivationView(plaqueId) {
                 id="act-client-phone" 
                 class="form-input font-mono" 
                 placeholder="(11) 98765-4321" 
-                value="${plaque.client_phone || ''}" 
+                value="${escapeHtml(plaque.client_phone || '')}" 
                 required 
               />
             </div>
@@ -92,7 +93,7 @@ export function renderActivationView(plaqueId) {
               id="act-company-name" 
               class="form-input" 
               placeholder="Ex: Pizzaria Bella Napoli" 
-              value="${plaque.name || ''}" 
+              value="${escapeHtml(plaque.name || '')}" 
               required 
             />
           </div>
@@ -104,7 +105,7 @@ export function renderActivationView(plaqueId) {
               id="act-google-url" 
               class="form-input" 
               placeholder="https://g.page/r/.../review ou link de avaliação" 
-              value="${plaque.target_url || ''}" 
+              value="${escapeHtml(plaque.target_url || '')}" 
               required 
             />
             <span class="text-xs text-muted" style="font-size: 0.7rem;">O link direto onde o seu cliente vai dar 5 estrelas.</span>
@@ -118,7 +119,7 @@ export function renderActivationView(plaqueId) {
               class="form-input font-mono" 
               placeholder="Ex: 1234" 
               maxlength="6"
-              value="${plaque.pin || ''}" 
+              value="${escapeHtml(plaque.pin || '')}" 
             />
             <span class="text-xs text-muted" style="font-size: 0.7rem;">Código de proteção para editar esta plaquinha no futuro.</span>
           </div>

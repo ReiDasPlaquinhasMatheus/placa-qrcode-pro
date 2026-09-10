@@ -117,10 +117,17 @@ export function buildGoogleReviewUrl(input) {
     return trimmed;
   }
 
-  if (trimmed.startsWith('ChIJ') || trimmed.length > 20) {
+  // Se o usuário colou um link web (ex: maps.app.goo.gl/..., g.page/r/..., google.com/...) sem https://
+  if (trimmed.includes('.') || trimmed.includes('/')) {
+    return sanitizeUrl(trimmed);
+  }
+
+  // Se for Place ID puro do Google (inicia com ChIJ ou string alfanumérica longa sem pontos/barras)
+  if (trimmed.startsWith('ChIJ') || trimmed.length >= 24) {
     return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(trimmed)}`;
   }
 
+  // Se for nome de usuário ou identificador de perfil do Google (ex: @minhaempresa ou minhaempresa)
   return `https://g.page/r/${encodeURIComponent(trimmed.replace('@', ''))}/review`;
 }
 

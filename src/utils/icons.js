@@ -68,7 +68,13 @@ export function getIcon(name, className = '', size = 18) {
       return `<svg ${props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`;
 
     case 'check':
-      return `<svg ${props}><path d="M20 6 9 17l-5-5"></path></svg>`;
+    case 'checkcircle':
+      return `<svg ${props}><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>`;
+
+    case 'alert':
+    case 'alerttriangle':
+    case 'warning':
+      return `<svg ${props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" x2="12" y1="9" y2="13"></line><line x1="12" x2="12.01" y1="17" y2="17"></line></svg>`;
 
     case 'arrowright':
       return `<svg ${props}><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>`;
