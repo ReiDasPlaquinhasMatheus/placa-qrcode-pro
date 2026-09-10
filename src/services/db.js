@@ -1,7 +1,7 @@
 // Placa QR Pro - High Performance Native IndexedDB Engine
 // Suporta armazenamento local persistente de centenas de milhares de registros sem limites de quota
 
-const DB_NAME = 'PlacaQRProDB';
+const DB_NAME = 'PlacaQRProDB_v2';
 const DB_VERSION = 1;
 const STORE_PLAQUES = 'plaques';
 const STORE_KV = 'keyval';
@@ -94,6 +94,24 @@ class IndexedDBStorage {
           console.warn('Erro ao persistir lote no IndexedDB:', e.target.error);
           resolve(false);
         };
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  // Limpar todas as placas do IndexedDB
+  async clearAllPlaques() {
+    const db = await this.getDB();
+    if (!db) return false;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(STORE_PLAQUES, 'readwrite');
+        const store = tx.objectStore(STORE_PLAQUES);
+        const req = store.clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
       } catch (e) {
         resolve(false);
       }

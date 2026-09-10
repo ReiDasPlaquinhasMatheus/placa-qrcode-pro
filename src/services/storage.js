@@ -4,8 +4,8 @@
 import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex } from '../utils/helpers.js';
 import { idb } from './db.js';
 
-const STORAGE_KEY = 'placa_qrcode_pro_data_v5';
-const SETTINGS_KEY = 'placa_qrcode_pro_settings_v5';
+const STORAGE_KEY = 'placa_qrcode_pro_data_v6';
+const SETTINGS_KEY = 'placa_qrcode_pro_settings_v6';
 
 // Hash SHA-256 padrão para as credenciais do Dono (Usuário: Matheus / Senha: Helena2026)
 const DEFAULT_ADMIN_USER = 'Matheus';
@@ -78,16 +78,16 @@ class StorageService {
   loadLocalPlaques() {
     try {
       if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('placa_qrcode_pro_data_v4');
+        const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed)) return parsed;
         }
       }
     } catch (e) {
       console.warn('Falha ao ler localStorage:', e);
     }
-    return [...DEFAULT_SEED_PLAQUES];
+    return [];
   }
 
   loadSettings() {
@@ -101,7 +101,7 @@ class StorageService {
     };
     try {
       if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem('placa_qrcode_pro_settings_v4');
+        const stored = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem('placa_qrcode_pro_settings_v5');
         if (stored) {
           const parsed = JSON.parse(stored);
           const combined = { ...defaultSettings, ...parsed };
@@ -236,14 +236,10 @@ class StorageService {
         });
         if (res.ok) {
           const cloudData = await res.json();
-          if (Array.isArray(cloudData) && cloudData.length > 0) {
+          if (Array.isArray(cloudData)) {
             this.setPlaquesInternal(cloudData);
             this.saveToDisk(this.plaques);
             return cloudData;
-          } else if (Array.isArray(cloudData) && cloudData.length === 0 && this.plaques.length > 0) {
-            // Tabela vazia: faz seed inicial em lotes
-            this.syncBatchToSupabase(this.plaques);
-            return this.plaques;
           }
         }
       } catch (err) {
@@ -256,7 +252,7 @@ class StorageService {
       const res = await this.fetchWithTimeout('/api/plaques', {}, 2000);
       if (res.ok) {
         const serverData = await res.json();
-        if (Array.isArray(serverData) && serverData.length > 0) {
+        if (Array.isArray(serverData)) {
           this.setPlaquesInternal(serverData);
           this.saveToDisk(this.plaques);
           return serverData;
@@ -963,6 +959,62 @@ class StorageService {
       return { success: false, error: 'Arquivo JSON corrompido ou inválido.' };
     }
     return { success: false, error: 'Formato de backup incompatível.' };
+  }
+
+  // Limpeza total e reinício do zero absoluto (Memória, IndexedDB, LocalStorage, Supabase Cloud e Mock Server)
+  async resetDatabaseToZero() {
+    // 1. Limpa memória
+    this.plaques = [];
+    this.plaquesMap.clear();
+    this.invalidateCache();
+
+    // 2. Limpa IndexedDB
+    try {
+      await idb.clearAllPlaques();
+    } catch (e) {}
+
+    // Limpa bancos legados do IndexedDB se existirem
+    try {
+      if (typeof indexedDB !== 'undefined') {
+        indexedDB.deleteDatabase('PlacaQRProDB');
+      }
+    } catch (e) {}
+
+    // 3. Limpa todas as versões de LocalStorage
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('placa_qrcode_pro_data_v6');
+        localStorage.removeItem('placa_qrcode_pro_data_v5');
+        localStorage.removeItem('placa_qrcode_pro_data_v4');
+        localStorage.removeItem('placa_qrcode_pro_data_v3');
+        localStorage.removeItem('placa_qrcode_pro_data_v2');
+        localStorage.removeItem('placa_qrcode_pro_data');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      }
+    } catch (e) {}
+
+    // 4. Limpa no Supabase Cloud (deleta todas as linhas da tabela plaques)
+    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      try {
+        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=neq.ZZZZZZZZZZ_EMPTY`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': this.settings.supabaseKey,
+            'Authorization': `Bearer ${this.settings.supabaseKey}`
+          }
+        }, 8000);
+      } catch (e) {
+        console.warn('Aviso: Falha ao zerar no Supabase Cloud:', e);
+      }
+    }
+
+    // 5. Limpa no mock server local se estiver rodando
+    try {
+      await this.fetchWithTimeout('/api/plaques/reset', { method: 'POST' }, 2000);
+    } catch (e) {}
+
+    return { success: true };
   }
 }
 

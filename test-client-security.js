@@ -21,6 +21,40 @@ async function runSecurityAudit() {
     }
   }
 
+  // Configura fixtures de teste isoladas
+  storage.setPlaquesInternal([
+    {
+      id: 'PLQ-001',
+      name: 'Pizzaria Bella Napoli',
+      status: 'active',
+      target_url: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
+      pin: '1234',
+      client_name: 'Roberto Pizza',
+      client_phone: '(11) 98765-4321',
+      client_code: '12345678911',
+      created_at: new Date().toISOString(),
+      activated_at: new Date().toISOString(),
+      scans_count: 142,
+      last_scan_at: new Date().toISOString(),
+      batch_name: 'Lote 01'
+    },
+    {
+      id: 'PLQ-002',
+      name: 'Barbearia Vintage Club',
+      status: 'active',
+      target_url: 'https://search.google.com/local/writereview?placeid=ChIJQ1t_tDeuEmsRUsoyG83frY5',
+      pin: '5678',
+      client_name: 'Carlos Barba',
+      client_phone: '(21) 99888-7766',
+      client_code: '66778889912',
+      created_at: new Date().toISOString(),
+      activated_at: new Date().toISOString(),
+      scans_count: 89,
+      last_scan_at: new Date().toISOString(),
+      batch_name: 'Lote 01'
+    }
+  ]);
+
   // 1. Teste de Autenticação Sem Senha por Telefone e Código Invertido
   console.log('\n🔐 1. Testando Lógica de Código de Login Sem Senha...');
   const phoneA = '(11) 98765-4321';

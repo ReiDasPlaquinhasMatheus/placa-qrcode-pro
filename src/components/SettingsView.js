@@ -191,6 +191,22 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.plaques;
           </div>
         </div>
 
+        <!-- Bloco 5: Zerar Banco de Dados (Início Limpo) -->
+        <div class="card p-6" style="border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.02);">
+          <h2 style="font-size: 1rem; margin-bottom: 0.25rem; color: var(--danger-color, #dc2626); display: flex; align-items: center; gap: 8px;">
+            ${getIcon('trash', '', 18)}
+            <span>Zerar Banco de Dados (Começar do Zero)</span>
+          </h2>
+          <p class="text-xs text-muted mb-4">
+            Exclui permanentemente todas as placas, lotes e clientes do navegador, do IndexedDB e da nuvem (Supabase). Use para iniciar a produção do zero absoluto com contagem limpa a partir de <strong>#1</strong>.
+          </p>
+
+          <button id="btn-purge-database" class="btn btn-danger btn-sm" style="display: inline-flex; align-items: center; gap: 6px; background-color: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+            ${getIcon('trash', '', 14)}
+            <span>Limpar e Zerar Todas as Placas</span>
+          </button>
+        </div>
+
       </div>
 
     </div>

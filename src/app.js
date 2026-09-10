@@ -1051,6 +1051,23 @@ function setupEventListeners() {
         }
       });
     }
+
+    const btnPurgeDatabase = document.getElementById('btn-purge-database');
+    if (btnPurgeDatabase) {
+      btnPurgeDatabase.addEventListener('click', async () => {
+        const confirmation = prompt('⚠️ ATENÇÃO: Esta ação excluirá TODAS as placas, lotes e clientes do sistema (IndexedDB, LocalStorage e Supabase).\n\nPara confirmar a limpeza total e zerar o banco para produção, digite ZERAR abaixo:');
+        if (confirmation === 'ZERAR') {
+          btnPurgeDatabase.disabled = true;
+          btnPurgeDatabase.textContent = 'Limpando todo o sistema...';
+          await storage.resetDatabaseToZero();
+          alert('✅ Banco de dados zerado com sucesso! O sistema está 100% limpo para começar do zero.');
+          window.location.hash = '#/lotes';
+          renderApp();
+        } else if (confirmation !== null) {
+          alert('Ação cancelada. A palavra de segurança não confere.');
+        }
+      });
+    }
   }
 
   // 1. Login do Administrador / Dono

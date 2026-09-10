@@ -4,58 +4,9 @@ import path from 'path';
 
 const DB_FILE = path.resolve(__dirname, 'server-db.json');
 
-// Inicializa banco de dados local compartilhado
+// Inicializa banco de dados local compartilhado (Produção limpa a partir do zero)
 function getInitialDb() {
-  return [
-    {
-      id: 'PLQ-001',
-      name: 'Pizzaria Bella Napoli',
-      status: 'active',
-      target_url: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
-      pin: '1234',
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-      activated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-      scans_count: 142,
-      last_scan_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-      batch_name: 'Lote 01'
-    },
-    {
-      id: 'PLQ-002',
-      name: 'Barbearia Vintage Club',
-      status: 'active',
-      target_url: 'https://search.google.com/local/writereview?placeid=ChIJQ1t_tDeuEmsRUsoyG83frY5',
-      pin: '5678',
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
-      activated_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-      scans_count: 89,
-      last_scan_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-      batch_name: 'Lote 01'
-    },
-    {
-      id: 'PLQ-003',
-      name: '',
-      status: 'virgin',
-      target_url: '',
-      pin: '9012',
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      activated_at: null,
-      scans_count: 0,
-      last_scan_at: null,
-      batch_name: 'Lote 02'
-    },
-    {
-      id: 'PLQ-004',
-      name: '',
-      status: 'virgin',
-      target_url: '',
-      pin: '3456',
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      activated_at: null,
-      scans_count: 0,
-      last_scan_at: null,
-      batch_name: 'Lote 02'
-    }
-  ];
+  return [];
 }
 
 function readDb() {
@@ -188,6 +139,25 @@ function localNetworkApiPlugin() {
             }
           });
           return;
+        }
+
+        // Endpoint POST /api/plaques/reset (Zerar tudo)
+        if (url === '/api/plaques/reset' && req.method === 'POST') {
+          writeDb([]);
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ success: true, count: 0 }));
+        }
+
+        // Endpoint DELETE /api/batches/:name
+        if (url.startsWith('/api/batches/') && req.method === 'DELETE') {
+          const rawBatchName = decodeURIComponent(url.replace('/api/batches/', '').split('?')[0]);
+          const plaques = readDb();
+          const filtered = plaques.filter(p => (p.batch_name || 'Lote Geral').trim().toLowerCase() !== rawBatchName.trim().toLowerCase());
+          writeDb(filtered);
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.end(JSON.stringify({ success: true, deleted: plaques.length - filtered.length, remaining: filtered.length }));
         }
 
         next();
