@@ -817,9 +817,11 @@ class StorageService {
       return { success: false, error: 'Link de avaliação inválido. Insira um link válido (ex: https://g.page/r/... ou link da sua empresa).' };
     }
 
-    // Validação de PIN de segurança caso a placa já esteja ativa
-    if (plaque.status === 'active' && plaque.pin && pin && String(pin).trim() !== String(plaque.pin).trim()) {
-      return { success: false, error: 'PIN de segurança incorreto para alterar esta plaquinha.' };
+    // Validação estrita de PIN de segurança caso a placa já esteja ativa
+    if (plaque.status === 'active' && plaque.pin) {
+      if (!pin || String(pin).trim() !== String(plaque.pin).trim()) {
+        return { success: false, error: 'PIN de segurança obrigatório ou incorreto para alterar esta plaquinha.' };
+      }
     }
 
     const calculatedCode = clientCode || (clientPhone ? getReversedPhoneCode(clientPhone) : (plaque.client_code || ''));

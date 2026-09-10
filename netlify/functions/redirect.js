@@ -5,7 +5,9 @@ function isValidHttpUrl(string) {
   if (!string || typeof string !== 'string') return false;
   try {
     const url = new URL(string.trim());
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    if (!url.hostname || url.hostname.length < 3) return false;
+    return true;
   } catch (_) {
     return false;
   }

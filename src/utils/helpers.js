@@ -43,21 +43,27 @@ export function sanitizeUrl(string) {
   if (!string || typeof string !== 'string') return '';
   let trimmed = string.trim();
   if (!trimmed) return '';
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-    trimmed = 'https://' + trimmed;
+
+  // Se já possui algum protocolo explícito (ex: http:, https:, javascript:, file:, etc.)
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    return trimmed;
   }
-  return trimmed;
+
+  // Se não possui protocolo, adiciona https://
+  return 'https://' + trimmed;
 }
 
 /**
- * Validação rigorosa de URLs HTTP/HTTPS seguras (impede javascript:, data:, etc.)
+ * Validação rigorosa de URLs HTTP/HTTPS seguras (impede javascript:, data:, file:, ftp:, etc.)
  */
 export function isValidHttpUrl(string) {
   if (!string || typeof string !== 'string') return false;
   try {
     const formatted = sanitizeUrl(string);
     const url = new URL(formatted);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    if (!url.hostname || url.hostname.length < 3) return false;
+    return true;
   } catch (_) {
     return false;
   }
