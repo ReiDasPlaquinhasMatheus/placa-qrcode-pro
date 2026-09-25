@@ -1,5 +1,5 @@
-// Script de Preparação do Pacote de Produção (out / out.zip)
-// Compatível com Hostinger, cPanel, Apache, Netlify, Vercel e Servidores VPS
+// Script de Preparação do Pacote de Produção (dist / out / out.zip)
+// Compatível com Netlify, Vercel, Hostinger, cPanel, Apache e Servidores VPS
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -10,22 +10,42 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('🚀 Iniciando preparação do pacote de produção "out"...');
+console.log('🚀 Iniciando preparação do pacote de produção (dist & out)...');
 
-// 1. Executa Vite Build
-console.log('📦 1/5 Compilando projeto via Vite...');
-execSync('npm run build', { cwd: __dirname, stdio: 'inherit' });
+// 1. Executa Vite Build (gera dist)
+console.log('📦 1/5 Compilando projeto via Vite para a pasta dist...');
+execSync('npx vite build', { cwd: __dirname, stdio: 'inherit' });
 
-const outDir = path.join(__dirname, 'out');
 const distDir = path.join(__dirname, 'dist');
+const outDir = path.join(__dirname, 'out');
 const desktopDir = path.join(os.homedir(), 'Desktop');
 
+if (!fs.existsSync(distDir)) {
+  fs.mkdirSync(distDir, { recursive: true });
+}
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }
 
-// 2. Cria arquivo .htaccess para Apache / LiteSpeed (Hostinger / cPanel)
-console.log('⚙️  2/5 Configurando regras de roteamento (.htaccess e _redirects)...');
+// 2. Copia dist para out
+console.log('🔄 2/5 Sincronizando pasta out com dist...');
+function copyFolderRecursiveSync(source, target) {
+  if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+  const files = fs.readdirSync(source);
+  files.forEach(file => {
+    const curSource = path.join(source, file);
+    const curTarget = path.join(target, file);
+    if (fs.lstatSync(curSource).isDirectory()) {
+      copyFolderRecursiveSync(curSource, curTarget);
+    } else {
+      fs.copyFileSync(curSource, curTarget);
+    }
+  });
+}
+copyFolderRecursiveSync(distDir, outDir);
+
+// 3. Regras de roteamento (.htaccess e _redirects)
+console.log('⚙️  3/5 Configurando regras de roteamento (.htaccess e _redirects)...');
 const htaccessContent = `# ========================================================================
 # REGRAS DE ROTEAMENTO SPA (PLACA QR CODE PRO) - HOSTINGER / CPANEL / APACHE
 # ========================================================================
@@ -57,15 +77,15 @@ const htaccessContent = `# =====================================================
   </FilesMatch>
 </IfModule>
 `;
-fs.writeFileSync(path.join(outDir, '.htaccess'), htaccessContent, 'utf-8');
+[distDir, outDir].forEach(dir => {
+  fs.writeFileSync(path.join(dir, '.htaccess'), htaccessContent, 'utf-8');
+  fs.writeFileSync(path.join(dir, '_redirects'), '/*    /index.html   200\n', 'utf-8');
+  if (fs.existsSync(path.join(dir, 'index.html'))) {
+    fs.copyFileSync(path.join(dir, 'index.html'), path.join(dir, '404.html'));
+  }
+});
 
-// 3. Fallback 404.html e _redirects para Netlify/Cloudflare/GitHub Pages
-if (fs.existsSync(path.join(outDir, 'index.html'))) {
-  fs.copyFileSync(path.join(outDir, 'index.html'), path.join(outDir, '404.html'));
-}
-fs.writeFileSync(path.join(outDir, '_redirects'), '/*    /index.html   200\n', 'utf-8');
-
-// 4. Cria arquivo COMO_SUBIR_NA_HOSTINGER.txt dentro da pasta out
+// 4. Guia Hostinger
 const guideContent = `========================================================================
  GUIA RÁPIDO: COMO SUBIR A PASTA OUT NA SUA HOSPEDAGEM (HOSTINGER / CPANEL)
 ========================================================================
@@ -83,9 +103,12 @@ COMO PUBLICAR NA HOSTINGER:
    ⚠️ Atenção: Certifique-se de extrair o CONTEÚDO diretamente dentro de public_html
    (para que o index.html fique em public_html/index.html).
 6. Se sobrar o arquivo .zip após extrair, você pode apagá-lo.
-7. Pronto! Acesse seu domínio no navegador.
+7. Pronto! Acesse seu domínio no navegador e aperte Ctrl + Shift + R.
 
 O QUE JÁ ESTÁ INCLUSO:
+- Dashboard Analítico de Leituras e Ativações (Timeline + Donut + Ranking).
+- Filtro "Hoje" no painel e na tabela.
+- Visual compacto executivo de alta densidade.
 - O novo logotipo oficial configurado.
 - Todas as fontes Montserrat carregadas.
 - Portal do cliente atualizado com fundo azul e design moderno.
@@ -94,29 +117,11 @@ O QUE JÁ ESTÁ INCLUSO:
 - Arquivo .htaccess para navegação limpa sem erro 404 em nenhuma rota.
 ========================================================================
 `;
-fs.writeFileSync(path.join(outDir, 'COMO_SUBIR_NA_HOSTINGER.txt'), guideContent, 'utf-8');
+[distDir, outDir].forEach(dir => {
+  fs.writeFileSync(path.join(dir, 'COMO_SUBIR_NA_HOSTINGER.txt'), guideContent, 'utf-8');
+});
 
-// 5. Sincroniza com a pasta dist (para garantir compatibilidade máxima)
-console.log('🔄 3/5 Sincronizando pasta dist com out...');
-if (!fs.existsSync(distDir)) {
-  fs.mkdirSync(distDir, { recursive: true });
-}
-function copyFolderRecursiveSync(source, target) {
-  if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
-  const files = fs.readdirSync(source);
-  files.forEach(file => {
-    const curSource = path.join(source, file);
-    const curTarget = path.join(target, file);
-    if (fs.lstatSync(curSource).isDirectory()) {
-      copyFolderRecursiveSync(curSource, curTarget);
-    } else {
-      fs.copyFileSync(curSource, curTarget);
-    }
-  });
-}
-copyFolderRecursiveSync(outDir, distDir);
-
-// 6. Compacta a pasta out em arquivo ZIP usando JSZip
+// 5. Compacta a pasta out em arquivo ZIP usando JSZip
 console.log('🗜️  4/5 Gerando arquivo out.zip compactado...');
 async function generateZip() {
   const zip = new JSZip();
@@ -151,19 +156,24 @@ async function generateZip() {
 
   // Salva na Área de Trabalho (Desktop) se existir
   if (fs.existsSync(desktopDir)) {
-    const desktopZip1 = path.join(desktopDir, 'out.zip');
-    const desktopZip2 = path.join(desktopDir, 'placa-qrcode-pro-out.zip');
-    fs.writeFileSync(desktopZip1, zipBuffer);
-    fs.writeFileSync(desktopZip2, zipBuffer);
-    console.log(`   ✅ Arquivo na Área de Trabalho: ${desktopZip1}`);
-    console.log(`   ✅ Arquivo na Área de Trabalho: ${desktopZip2}`);
+    try {
+      const desktopZip1 = path.join(desktopDir, 'out.zip');
+      const desktopZip2 = path.join(desktopDir, 'placa-qrcode-pro-out.zip');
+      fs.writeFileSync(desktopZip1, zipBuffer);
+      fs.writeFileSync(desktopZip2, zipBuffer);
+      console.log(`   ✅ Arquivo na Área de Trabalho: ${desktopZip1}`);
+      console.log(`   ✅ Arquivo na Área de Trabalho: ${desktopZip2}`);
+    } catch (e) {
+      console.log('   ⚠️ Não foi possível salvar no Desktop:', e.message);
+    }
   }
 }
 
 generateZip().then(() => {
   console.log('\n🎉 5/5 Concluído com sucesso!');
   console.log('---------------------------------------------------------');
-  console.log('📁 Pasta out: ' + outDir);
+  console.log('📁 Pasta dist (Netlify/Vercel): ' + distDir);
+  console.log('📁 Pasta out (Hostinger/cPanel): ' + outDir);
   console.log('📁 Arquivo out.zip: ' + path.join(__dirname, 'out.zip'));
   if (fs.existsSync(desktopDir)) {
     console.log('🖥️  Área de Trabalho: ' + path.join(desktopDir, 'placa-qrcode-pro-out.zip'));

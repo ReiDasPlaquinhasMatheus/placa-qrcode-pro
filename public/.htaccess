@@ -1,0 +1,30 @@
+# ========================================================================
+# REGRAS DE ROTEAMENTO SPA (PLACA QR CODE PRO) - HOSTINGER / CPANEL / APACHE
+# ========================================================================
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Caching e Desempenho
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+
+  # Arquivos com hash de versao (JS e CSS) podem ter cache longo
+  <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "max-age=31536000, public"
+  </FilesMatch>
+
+  # HTML NUNCA fica preso em cache para o usuario sempre ver as alteracoes
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+  </FilesMatch>
+</IfModule>

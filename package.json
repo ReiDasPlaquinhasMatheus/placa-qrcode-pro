@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node -e \"const fs=require('fs'); try{fs.cpSync('dist','out',{recursive:true});}catch(e){}\"",
     "preview": "vite preview",
     "prepare-out": "node prepare-out.js",
     "out": "node prepare-out.js"
