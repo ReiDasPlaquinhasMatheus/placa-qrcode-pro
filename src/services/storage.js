@@ -225,42 +225,85 @@ class StorageService {
   }
 
   async initCloudAndServerSync() {
-    // 1. Tenta carregar do Supabase Cloud se as credenciais estiverem ativas
-    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
-      try {
-        const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?select=*&order=created_at.desc&limit=10000`, {
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
-          }
-        });
-        if (res.ok) {
-          const cloudData = await res.json();
-          if (Array.isArray(cloudData)) {
-            this.setPlaquesInternal(cloudData);
-            this.saveToDisk(this.plaques);
-            return cloudData;
-          }
-        }
-      } catch (err) {
-        // Modo offline / resiliência silenciosa
-      }
+    if (this._syncPromise) {
+      return this._syncPromise;
     }
 
-    // 2. Se falhar ou estiver offline, tenta API local
-    try {
-      const res = await this.fetchWithTimeout('/api/plaques', {}, 2000);
-      if (res.ok) {
-        const serverData = await res.json();
-        if (Array.isArray(serverData)) {
-          this.setPlaquesInternal(serverData);
-          this.saveToDisk(this.plaques);
-          return serverData;
+    this._syncPromise = (async () => {
+      // 1. Tenta carregar do Supabase Cloud se as credenciais estiverem ativas (com paginação para superar o limite de 1000 do PostgREST)
+      if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+        try {
+          const allCloudData = [];
+          let offset = 0;
+          const pageSize = 1000;
+          let hasMore = true;
+
+          while (hasMore) {
+            const res = await this.fetchWithTimeout(
+              `${this.settings.supabaseUrl}/rest/v1/plaques?select=*&order=created_at.desc&limit=${pageSize}&offset=${offset}`,
+              {
+                headers: {
+                  'apikey': this.settings.supabaseKey,
+                  'Authorization': `Bearer ${this.settings.supabaseKey}`
+                }
+              },
+              8000
+            );
+
+            if (!res.ok) break;
+
+            const batch = await res.json();
+            if (!Array.isArray(batch) || batch.length === 0) {
+              hasMore = false;
+              break;
+            }
+
+            allCloudData.push(...batch);
+
+            if (batch.length < pageSize) {
+              hasMore = false;
+            } else {
+              offset += pageSize;
+            }
+          }
+
+          if (allCloudData.length > 0) {
+            this.setPlaquesInternal(allCloudData);
+            this.saveToDisk(this.plaques);
+
+            // Sincroniza com a API local em segundo plano
+            fetch('/api/plaques/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(allCloudData)
+            }).catch(() => {});
+
+            return allCloudData;
+          }
+        } catch (err) {
+          console.warn('Modo offline / fallback:', err);
         }
       }
-    } catch (e) {}
 
-    return this.plaques;
+      // 2. Se falhar ou estiver offline, tenta API local
+      try {
+        const res = await this.fetchWithTimeout('/api/plaques', {}, 2000);
+        if (res.ok) {
+          const serverData = await res.json();
+          if (Array.isArray(serverData) && serverData.length > 0) {
+            this.setPlaquesInternal(serverData);
+            this.saveToDisk(this.plaques);
+            return serverData;
+          }
+        }
+      } catch (e) {}
+
+      return this.plaques;
+    })().finally(() => {
+      this._syncPromise = null;
+    });
+
+    return this._syncPromise;
   }
 
   // Persistência com IndexedDB e Fallback seguro para LocalStorage
@@ -881,6 +924,213 @@ class StorageService {
 
     this._cachedStats = { total, active, virgin, totalScans };
     return this._cachedStats;
+  }
+
+  // Métricas analíticas completas para o Dashboard do Dono
+  getDashboardMetrics(daysCount = 14) {
+    const isTodayMode = parseInt(daysCount, 10) === 1;
+    const days = isTodayMode ? 1 : Math.max(3, Math.min(60, parseInt(daysCount, 10) || 14));
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+
+    const timelineMap = new Map();
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    if (isTodayMode) {
+      // 8 faixas de horário para o dia de Hoje
+      const slots = [
+        { start: 0, end: 3, label: '00h às 03h (Madrugada)', shortLabel: '00h-03h' },
+        { start: 3, end: 6, label: '03h às 06h (Madrugada)', shortLabel: '03h-06h' },
+        { start: 6, end: 9, label: '06h às 09h (Manhã)', shortLabel: '06h-09h' },
+        { start: 9, end: 12, label: '09h às 12h (Manhã)', shortLabel: '09h-12h' },
+        { start: 12, end: 15, label: '12h às 15h (Tarde)', shortLabel: '12h-15h' },
+        { start: 15, end: 18, label: '15h às 18h (Tarde)', shortLabel: '15h-18h' },
+        { start: 18, end: 21, label: '18h às 21h (Noite)', shortLabel: '18h-21h' },
+        { start: 21, end: 24, label: '21h às 24h (Noite)', shortLabel: '21h-24h' }
+      ];
+      slots.forEach((s, idx) => {
+        timelineMap.set(String(idx), {
+          slotIndex: idx,
+          date: todayStr,
+          label: s.label,
+          shortLabel: s.shortLabel,
+          dayName: 'Hoje',
+          scans: 0,
+          activations: 0,
+          isToday: true
+        });
+      });
+    } else {
+      // Inicializa os N dias em ordem cronológica
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const isoDate = d.toISOString().split('T')[0];
+        const parts = isoDate.split('-');
+        const formattedDayMonth = `${parts[2]}/${parts[1]}`;
+        const dayName = dayNames[d.getDay()];
+        
+        let label = formattedDayMonth;
+        if (isoDate === todayStr) label = `${formattedDayMonth} (Hoje)`;
+        else if (isoDate === yesterdayStr) label = `${formattedDayMonth} (Ontem)`;
+
+        timelineMap.set(isoDate, {
+          date: isoDate,
+          label,
+          shortLabel: formattedDayMonth,
+          dayName,
+          scans: 0,
+          activations: 0,
+          isToday: isoDate === todayStr
+        });
+      }
+    }
+
+    let totalActive = 0;
+    let totalVirgin = 0;
+    let totalScans = 0;
+    let todayScans = 0;
+    let yesterdayScans = 0;
+    let todayActivations = 0;
+    let yesterdayActivations = 0;
+
+    const clientsMap = new Map();
+    const activePlaquesList = [];
+
+    const total = this.plaques.length;
+    for (let i = 0; i < total; i++) {
+      const p = this.plaques[i];
+      const scans = p.scans_count || 0;
+      totalScans += scans;
+
+      if (p.status === 'active') {
+        totalActive++;
+        activePlaquesList.push(p);
+
+        let wasActivatedToday = false;
+        if (p.activated_at) {
+          const actDate = p.activated_at.split('T')[0];
+          if (actDate === todayStr) {
+            todayActivations++;
+            wasActivatedToday = true;
+            if (isTodayMode) {
+              const hour = new Date(p.activated_at).getHours();
+              const slotIdx = String(Math.min(7, Math.floor(hour / 3)));
+              const slot = timelineMap.get(slotIdx);
+              if (slot) slot.activations++;
+            }
+          }
+          if (actDate === yesterdayStr) yesterdayActivations++;
+          if (!isTodayMode && timelineMap.has(actDate)) {
+            timelineMap.get(actDate).activations++;
+          }
+        }
+
+        // Agrupamento para ranking de quem mais está ativando
+        const clientName = (p.client_name && p.client_name.trim()) || 'Cliente Não Identificado';
+        const clientPhone = (p.client_phone && p.client_phone.trim()) || '';
+        const clientCode = (p.client_code && p.client_code.trim()) || (clientPhone ? getReversedPhoneCode(clientPhone) : '');
+        const clientKey = clientCode || clientPhone || clientName;
+
+        let clientStat = clientsMap.get(clientKey);
+        if (!clientStat) {
+          clientStat = {
+            key: clientKey,
+            name: clientName,
+            phone: clientPhone,
+            code: clientCode,
+            activeCount: 0,
+            todayActiveCount: 0,
+            todayScans: 0,
+            totalScans: 0,
+            latestActivation: p.activated_at || p.created_at || ''
+          };
+          clientsMap.set(clientKey, clientStat);
+        }
+
+        clientStat.activeCount++;
+        if (wasActivatedToday) clientStat.todayActiveCount++;
+        clientStat.totalScans += scans;
+        if (p.activated_at && (!clientStat.latestActivation || p.activated_at > clientStat.latestActivation)) {
+          clientStat.latestActivation = p.activated_at;
+        }
+      } else {
+        totalVirgin++;
+      }
+
+      if (p.last_scan_at) {
+        const scanDate = p.last_scan_at.split('T')[0];
+        if (scanDate === todayStr) {
+          todayScans += scans || 1;
+          if (isTodayMode) {
+            const hour = new Date(p.last_scan_at).getHours();
+            const slotIdx = String(Math.min(7, Math.floor(hour / 3)));
+            const slot = timelineMap.get(slotIdx);
+            if (slot) slot.scans += scans || 1;
+          }
+        }
+        if (scanDate === yesterdayStr) yesterdayScans += scans || 1;
+        if (!isTodayMode && timelineMap.has(scanDate)) {
+          timelineMap.get(scanDate).scans += scans || 1;
+        }
+      }
+    }
+
+    // Ranking ordenado de clientes (se for modo hoje, prioriza quem teve atividade hoje)
+    const topClients = Array.from(clientsMap.values())
+      .sort((a, b) => {
+        if (isTodayMode) {
+          if (b.todayActiveCount !== a.todayActiveCount) return b.todayActiveCount - a.todayActiveCount;
+        }
+        return b.activeCount - a.activeCount || b.totalScans - a.totalScans;
+      })
+      .map((c, index) => ({
+        rank: index + 1,
+        ...c,
+        percentOfTotalActive: totalActive > 0 ? ((c.activeCount / totalActive) * 100).toFixed(1) : '0.0'
+      }));
+
+    // Distribuição por Lotes
+    const batches = this.getBatches();
+    const batchDistribution = batches.map(b => ({
+      name: b.name,
+      total: b.count,
+      active: b.active,
+      virgin: b.virgin,
+      totalScans: b.totalScans,
+      percentActive: b.count > 0 ? ((b.active / b.count) * 100).toFixed(1) : '0.0'
+    }));
+
+    // Últimas ativações ordenadas decrescente
+    const recentActivations = activePlaquesList
+      .filter(p => p.activated_at)
+      .sort((a, b) => new Date(b.activated_at) - new Date(a.activated_at))
+      .slice(0, 8);
+
+    const timeline = Array.from(timelineMap.values());
+    const activationRate = total > 0 ? ((totalActive / total) * 100).toFixed(1) : '0.0';
+
+    return {
+      periodDays: days,
+      timeline,
+      todayScans,
+      yesterdayScans,
+      todayActivations,
+      yesterdayActivations,
+      totalScans,
+      totalActive,
+      totalVirgin,
+      totalPlaques: total,
+      activationRate,
+      topClients,
+      uniqueActiveClients: clientsMap.size,
+      batchDistribution,
+      recentActivations
+    };
   }
 
   // Fila inteligente de sincronização em segundo plano (Write-behind batched sync)

@@ -21,6 +21,8 @@ export function renderPlaqueTable({
   let active = 0;
   let virgin = 0;
   let totalScans = 0;
+  const todayStr = new Date().toISOString().split('T')[0];
+  let todayCount = 0;
   const filtered = [];
 
   const q = searchQuery ? searchQuery.toLowerCase().trim() : '';
@@ -29,6 +31,9 @@ export function renderPlaqueTable({
   // Filtragem e Métricas em Passada Única Ultra Rápida (O(N))
   for (let i = 0; i < total; i++) {
     const p = basePlaques[i];
+    const isToday = Boolean(p.activated_at && p.activated_at.startsWith(todayStr));
+    if (isToday) todayCount++;
+
     if (p.status === 'active') active++;
     else if (p.status === 'virgin') virgin++;
     totalScans += (p.scans_count || 0);
@@ -36,6 +41,7 @@ export function renderPlaqueTable({
     // 1. Filtro por Status
     if (currentFilter === 'active' && p.status !== 'active') continue;
     if (currentFilter === 'virgin' && p.status !== 'virgin') continue;
+    if (currentFilter === 'today' && !isToday) continue;
 
     // 2. Filtro por Lote
     if (filterByLote && p.batch_name !== filterByLote) continue;
@@ -154,23 +160,23 @@ export function renderPlaqueTable({
         </div>
       </div>
 
-      <!-- Resumo de Métricas -->
-      <div class="grid grid-cols-4 gap-4 mb-6">
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Total de Placas</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px;">${total}</div>
+      <!-- Resumo de Métricas Compacto -->
+      <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Total de Placas</div>
+          <div style="font-size: 1.25rem; font-weight: 800; margin-top: 2px;">${total}</div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Ativas</div>
-          <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-green); margin-top: 4px;">${active}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Ativas</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-green); margin-top: 2px;">${active}</div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Virgens (Disponíveis)</div>
-          <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-gold); margin-top: 4px;">${virgin}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Virgens (Disponíveis)</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-gold); margin-top: 2px;">${virgin}</div>
         </div>
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Total de Visualizações (Scans)</div>
-          <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-blue); margin-top: 4px;">${totalScans}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Total de Visualizações (Scans)</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-blue); margin-top: 2px;">${totalScans}</div>
         </div>
       </div>
 
@@ -182,6 +188,9 @@ export function renderPlaqueTable({
           <div class="filter-tabs" style="display: flex; gap: 6px;">
             <button class="filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-filter="all">
               Todas (${total})
+            </button>
+            <button class="filter-btn ${currentFilter === 'today' ? 'active' : ''}" data-filter="today" style="${currentFilter === 'today' ? '' : 'color: #2563EB; font-weight: 700;'}">
+              Hoje (${todayCount})
             </button>
             <button class="filter-btn ${currentFilter === 'active' ? 'active' : ''}" data-filter="active">
               Ativas (${active})
@@ -311,52 +320,52 @@ export function renderPlaqueTable({
                   </td>
                 </tr>
               ` : paginatedPlaques.map(plaque => `
-                <tr style="border-bottom: 1px solid var(--color-border); height: 52px; white-space: nowrap; vertical-align: middle;">
+                <tr style="border-bottom: 1px solid var(--color-border); height: 48px; white-space: nowrap; vertical-align: middle; transition: background 0.15s ease;">
                   
                   <!-- ID da Placa (1 linha só) -->
-                  <td style="padding: 0.65rem 1rem; white-space: nowrap;">
-                    <span class="badge" style="background: rgba(255,255,255,0.06); font-family: monospace; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px;">
+                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap;">
+                    <span class="badge" style="background: rgba(255,255,255,0.06); font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.5px;">
                       ${escapeHtml(plaque.id)}
                     </span>
                     ${plaque.batch_name ? `
-                      <span class="text-xs text-muted" style="margin-left: 6px; font-size: 0.72rem;" title="Pasta de Lote: ${escapeHtml(plaque.batch_name)}">
+                      <span class="text-xs text-muted" style="margin-left: 5px; font-size: 0.7rem;" title="Pasta de Lote: ${escapeHtml(plaque.batch_name)}">
                         (${escapeHtml(plaque.batch_name)})
                       </span>
                     ` : ''}
                   </td>
 
                   <!-- Status (1 linha só) -->
-                  <td style="padding: 0.65rem 0.75rem; white-space: nowrap;">
-                    <span class="badge ${plaque.status === 'active' ? 'badge-active' : 'badge-virgin'}" style="white-space: nowrap;">
+                  <td style="padding: 0.55rem 0.75rem; white-space: nowrap;">
+                    <span class="badge ${plaque.status === 'active' ? 'badge-active' : 'badge-virgin'}" style="white-space: nowrap; font-size: 0.75rem; padding: 2px 7px;">
                       <span class="status-dot"></span>
                       ${plaque.status === 'active' ? 'Ativa' : 'Virgem'}
                     </span>
                   </td>
 
                   <!-- Empresa & Link (1 linha só) -->
-                  <td style="padding: 0.65rem 1rem; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis;">
+                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis;">
                     ${plaque.name ? `
-                      <span style="font-weight: 600; font-size: 0.875rem; color: var(--color-text);" title="${escapeHtml(plaque.name)}">
+                      <span style="font-weight: 600; font-size: 0.8125rem; color: var(--color-text);" title="${escapeHtml(plaque.name)}">
                         ${escapeHtml(plaque.name)}
                       </span>
                       ${plaque.target_url ? `
-                        <a href="${escapeHtml(plaque.target_url)}" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-blue" style="margin-left: 6px; display: inline-flex; vertical-align: middle;" title="Abrir link de avaliação: ${escapeHtml(plaque.target_url)}">
+                        <a href="${escapeHtml(plaque.target_url)}" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-blue" style="margin-left: 5px; display: inline-flex; vertical-align: middle;" title="Abrir link de avaliação: ${escapeHtml(plaque.target_url)}">
                           ${getIcon('externallink', '', 12)}
                         </a>
                       ` : ''}
                     ` : `
-                      <span class="text-xs text-muted" style="font-style: italic;">Plaquinha virgem (aguardando ativação)</span>
+                      <span class="text-xs text-muted" style="font-style: italic; font-size: 0.75rem;">Plaquinha virgem (aguardando ativação)</span>
                     `}
                   </td>
 
                   <!-- Cliente / Comprador (1 linha só) -->
-                  <td style="padding: 0.65rem 1rem; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis;">
+                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;">
                     ${plaque.client_name || plaque.client_phone ? `
-                      <span style="font-size: 0.85rem; font-weight: 500;" title="${escapeHtml(plaque.client_name || '')}">
+                      <span style="font-size: 0.8125rem; font-weight: 500;" title="${escapeHtml(plaque.client_name || '')}">
                         ${escapeHtml(plaque.client_name || 'Comprador')}
                       </span>
                       ${plaque.client_phone ? `
-                        <span class="text-xs text-muted" style="margin-left: 4px; font-family: monospace;">
+                        <span class="text-xs text-muted" style="margin-left: 4px; font-family: var(--font-mono); font-size: 0.72rem;">
                           (${escapeHtml(plaque.client_phone)})
                         </span>
                       ` : ''}
@@ -371,35 +380,35 @@ export function renderPlaqueTable({
                   </td>
 
                   <!-- PIN (1 linha só) -->
-                  <td style="padding: 0.65rem 0.75rem; text-align: center; white-space: nowrap;">
-                    <span class="badge" style="background: rgba(255, 184, 0, 0.1); color: var(--color-gold); font-family: monospace; font-weight: 600; font-size: 0.8rem;">
+                  <td style="padding: 0.9rem 1rem; text-align: center; white-space: nowrap;">
+                    <span class="badge" style="background: rgba(255, 184, 0, 0.1); color: var(--color-gold); font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;">
                       ${escapeHtml(plaque.pin || '---')}
                     </span>
                   </td>
 
                   <!-- Visualizações / Scans (1 linha só) -->
-                  <td style="padding: 0.65rem 0.75rem; text-align: center; font-weight: 700; font-size: 0.9rem; white-space: nowrap;">
+                  <td style="padding: 0.9rem 1rem; text-align: center; font-weight: 700; font-size: 0.9rem; white-space: nowrap;">
                     <span style="color: ${(plaque.scans_count || 0) > 0 ? 'var(--color-blue)' : 'var(--color-text-muted)'};">
                       ${plaque.scans_count || 0}
                     </span>
                   </td>
 
                   <!-- Última Visualização (1 linha só) -->
-                  <td style="padding: 0.65rem 1rem; font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                  <td style="padding: 0.9rem 1.15rem; font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
                     ${plaque.last_scan_at ? formatRelativeTime(plaque.last_scan_at) : 'Nunca'}
                   </td>
 
                   <!-- Ações (1 linha só com ícones vetoriais nítidos) -->
-                  <td style="padding: 0.65rem 1rem; text-align: right; white-space: nowrap;">
-                    <div style="display: inline-flex; gap: 4px; justify-content: flex-end; align-items: center;">
-                      <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Ver QR Code / Baixar Arquivos" style="padding: 5px 7px; height: 28px; width: 28px; display: inline-flex; align-items: center; justify-content: center;">
-                        ${getIcon('qrcode', '', 14)}
+                  <td style="padding: 0.9rem 1.15rem; text-align: right; white-space: nowrap;">
+                    <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                      <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Ver QR Code / Baixar Arquivos" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                        ${getIcon('qrcode', '', 15)}
                       </button>
-                      <button class="btn btn-secondary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Editar Destino / Dados" style="padding: 5px 7px; height: 28px; width: 28px; display: inline-flex; align-items: center; justify-content: center;">
-                        ${getIcon('edit', '', 14)}
+                      <button class="btn btn-secondary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Editar Destino / Dados" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                        ${getIcon('edit', '', 15)}
                       </button>
-                      <button class="btn btn-secondary btn-sm btn-reset-plaque" data-id="${escapeHtml(plaque.id)}" title="Resetar Plaquinha para Virgem" style="padding: 5px 7px; height: 28px; width: 28px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-gold);">
-                        ${getIcon('refresh', '', 14)}
+                      <button class="btn btn-secondary btn-sm btn-reset-plaque" data-id="${escapeHtml(plaque.id)}" title="Resetar Plaquinha para Virgem" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-gold);">
+                        ${getIcon('refresh', '', 15)}
                       </button>
                     </div>
                   </td>

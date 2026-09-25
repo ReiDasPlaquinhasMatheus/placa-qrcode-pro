@@ -4,8 +4,12 @@ export function renderNavbar(activeRoute = 'lotes') {
       <div class="container" style="display: flex; align-items: center; justify-content: space-between; height: 60px;">
         
         <!-- Logo -->
-        <a href="#/lotes" style="font-weight: 700; font-size: 1.125rem; color: #0F172A; display: flex; align-items: center; gap: 8px;">
-          <span>🔲 Placas QR Pro</span>
+        <a href="#/lotes" style="font-weight: 800; font-size: 1.125rem; color: #0F172A; display: flex; align-items: center; gap: 10px; text-decoration: none;">
+          <img src="/logo.png" alt="Rei do NFC" style="height: 38px; width: 38px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(37,99,235,0.3));" />
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <span style="font-weight: 800; color: #0F172A; font-size: 1.05rem; letter-spacing: -0.01em;">REI DO NFC</span>
+            <span style="font-size: 0.6875rem; color: #2563EB; font-weight: 700; text-transform: uppercase;">Placas Pro</span>
+          </div>
         </a>
 
         <!-- Links de Navegação -->

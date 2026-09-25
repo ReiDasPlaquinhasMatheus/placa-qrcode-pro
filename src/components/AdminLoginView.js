@@ -7,11 +7,9 @@ export function renderAdminLoginView() {
         
         <!-- Topo com Logo -->
         <div class="text-center mb-6">
-          <div style="width: 52px; height: 52px; background: #2563EB; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; margin: 0 auto 12px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);">
-            ${getIcon('logo', '', 26)}
-          </div>
-          <h1 style="font-size: 1.375rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em;">Placas QR Pro</h1>
-          <p style="font-size: 0.8125rem; color: #94A3B8; margin-top: 4px;">Painel de Acesso do Administrador</p>
+          <img src="/logo.png" alt="Rei do NFC" style="height: 84px; width: 84px; object-fit: contain; margin: 0 auto 12px; filter: drop-shadow(0 8px 24px rgba(37, 99, 235, 0.45));" />
+          <h1 style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em;">REI DO NFC</h1>
+          <p style="font-size: 0.8125rem; color: #94A3B8; margin-top: 4px;">Painel de Gestão de Placas QR Code</p>
         </div>
 
         <!-- Formulário de Login do Dono -->

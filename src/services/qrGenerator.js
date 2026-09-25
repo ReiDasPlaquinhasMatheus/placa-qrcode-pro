@@ -57,7 +57,7 @@ export async function generateCleanQRCodePng(plaqueId, size = 1000, includeLabel
   const fontSize = Math.round(size * 0.026); // 26px (pequeno, elegante e nítido)
 
   ctx.fillStyle = '#334155';
-  ctx.font = `bold ${fontSize}px 'JetBrains Mono', 'Courier New', monospace`;
+  ctx.font = `bold ${fontSize}px 'Montserrat', sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.letterSpacing = '2px';
@@ -108,7 +108,7 @@ export async function generateCleanQRCodeSvg(plaqueId, includeLabel = true) {
   </svg>
 
   <!-- Escrita do ID Rente à Margem Inferior do QR Code -->
-  <text x="500" y="962" font-family="'JetBrains Mono', 'Courier New', monospace" font-weight="700" font-size="26" fill="#334155" text-anchor="middle" letter-spacing="2">
+  <text x="500" y="962" font-family="'Montserrat', sans-serif" font-weight="700" font-size="26" fill="#334155" text-anchor="middle" letter-spacing="2">
     ${plaqueId}
   </text>
 </svg>`;

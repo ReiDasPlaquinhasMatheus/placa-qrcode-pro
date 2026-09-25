@@ -9,6 +9,7 @@ import { renderPlaqueTable } from './components/PlaqueTable.js';
 import { renderBatchGenerator } from './components/BatchGenerator.js';
 import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
+import { renderDashboardView } from './components/DashboardView.js';
 import { renderSettingsView } from './components/SettingsView.js';
 import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
@@ -21,6 +22,10 @@ const state = {
   currentRoute: 'lotes',
   currentBatch: null,
   activePlaqueId: null,
+
+  // Filtros e opções do Dashboard
+  dashboardPeriod: 14,
+  dashboardSeries: 'both',
 
   // Filtros e paginação da Tabela de Placas
   plaqueFilter: 'all',
@@ -101,7 +106,23 @@ function getRoute() {
     return { name: 'batch', params: { batchName } };
   }
 
-  if (hash === '#/todas-placas' || cleanPath === 'todas-placas') return { name: 'todas-placas' };
+  if (hash === '#/dashboard' || hash === '#/metricas' || cleanPath === 'dashboard' || cleanPath === 'metricas') {
+    return { name: 'dashboard' };
+  }
+
+  if (hash.startsWith('#/todas-placas') || cleanPath.startsWith('todas-placas')) {
+    const searchPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
+    if (searchPart) {
+      const urlParams = new URLSearchParams(searchPart);
+      const clientParam = urlParams.get('client');
+      if (clientParam) {
+        state.plaqueClientFilter = clientParam;
+        state.plaquePage = 1;
+      }
+    }
+    return { name: 'todas-placas' };
+  }
+
   if (hash === '#/gerador' || cleanPath === 'gerador') return { name: 'gerador' };
   if (hash === '#/ajuda-google' || cleanPath === 'ajuda-google') return { name: 'ajuda-google' };
   if (hash === '#/config' || cleanPath === 'config') return { name: 'config' };
@@ -129,7 +150,7 @@ async function renderApp() {
       if (plaque && plaque.status === 'active' && plaque.target_url && isValidHttpUrl(plaque.target_url)) {
         storage.recordScan(plaque.id);
         appEl.innerHTML = `
-          <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: sans-serif;">
+          <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: var(--font-sans);">
             <div style="text-align: center; padding: 2rem;">
               <p style="font-size: 0.875rem; color: #64748B;">Redirecionando para as avaliações...</p>
               <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${escapeHtml(plaque.name || plaque.id)}</p>
@@ -209,7 +230,12 @@ async function renderApp() {
 
     // 6. Painel Administrativo com Sidebar Lateral (Apenas para Administrador autenticado)
     let mainContentHtml = '';
-    if (route.name === 'gerador') {
+    if (route.name === 'dashboard') {
+      mainContentHtml = renderDashboardView({
+        period: state.dashboardPeriod,
+        series: state.dashboardSeries
+      });
+    } else if (route.name === 'gerador') {
       mainContentHtml = renderBatchGenerator();
     } else if (route.name === 'clientes') {
       mainContentHtml = renderClientsView({
@@ -317,6 +343,29 @@ function setupEventListeners() {
       if (backdropEl) backdropEl.classList.remove('open');
     });
   }
+
+  // ==========================================
+  // EVENTOS DO DASHBOARD (PERÍODO & SÉRIES)
+  // ==========================================
+  document.querySelectorAll('.btn-dashboard-period').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const period = parseInt(e.currentTarget.dataset.period, 10);
+      if (period) {
+        state.dashboardPeriod = period;
+        renderApp();
+      }
+    });
+  });
+
+  document.querySelectorAll('.btn-dashboard-series').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const series = e.currentTarget.dataset.series;
+      if (series) {
+        state.dashboardSeries = series;
+        renderApp();
+      }
+    });
+  });
 
   // ==========================================
   // FILTROS & PAGINAÇÃO DA TABELA DE PLACAS

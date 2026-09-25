@@ -10,9 +10,9 @@ export function renderSidebar(activeRoute = 'lotes') {
   return `
     <!-- Mobile Header -->
     <div class="mobile-header">
-      <a href="#/lotes" style="font-weight: 800; font-size: 1.125rem; color: #FFFFFF; display: flex; align-items: center; gap: 8px;">
-        ${getIcon('logo', '', 20)}
-        <span>Placas QR Pro</span>
+      <a href="#/lotes" style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF; display: flex; align-items: center; gap: 10px; text-decoration: none;">
+        <img src="/logo.png" alt="Rei do NFC" style="height: 34px; width: 34px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(37,99,235,0.5));" />
+        <span style="letter-spacing: -0.01em;">REI DO NFC</span>
       </a>
       <button id="btn-toggle-mobile-sidebar" class="btn btn-ghost btn-sm" style="color: #FFFFFF; padding: 4px 8px;">
         ${getIcon('menu', '', 20)}
@@ -26,14 +26,12 @@ export function renderSidebar(activeRoute = 'lotes') {
     <aside class="sidebar" id="app-sidebar">
       
       <!-- Topo / Marca -->
-      <div class="sidebar-header">
-        <a href="#/lotes" class="sidebar-brand">
-          <div style="width: 32px; height: 32px; background: #2563EB; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #FFFFFF;">
-            ${getIcon('logo', '', 18)}
-          </div>
-          <div>
-            <div style="line-height: 1.2;">Placas QR Pro</div>
-            <div style="font-size: 0.6875rem; color: #64748B; font-weight: 500;">v2.0 • Multi-Cliente</div>
+      <div class="sidebar-header" style="padding: 1.25rem 1.15rem 1rem;">
+        <a href="#/lotes" class="sidebar-brand" style="display: flex; align-items: center; gap: 12px; text-decoration: none;">
+          <img src="/logo.png" alt="Rei do NFC" style="width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 4px 12px rgba(37,99,235,0.45));" />
+          <div style="overflow: hidden;">
+            <div style="line-height: 1.15; font-weight: 800; font-size: 1rem; color: #FFFFFF; letter-spacing: -0.01em;">REI DO NFC</div>
+            <div style="font-size: 0.6875rem; color: #60A5FA; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px;">Placas QR Pro</div>
           </div>
         </a>
         <button id="btn-close-mobile-sidebar" class="btn btn-ghost btn-sm" style="color: #94A3B8; display: none;" title="Fechar Menu">
@@ -44,7 +42,15 @@ export function renderSidebar(activeRoute = 'lotes') {
       <!-- Navegação Principal -->
       <nav class="sidebar-nav">
         
-        <div class="nav-section-title">Gerenciamento</div>
+        <div class="nav-section-title">Visão Geral</div>
+
+        <a href="#/dashboard" class="nav-item ${activeRoute === 'dashboard' ? 'active' : ''}">
+          <span class="nav-item-icon">${getIcon('barchart', '', 18)}</span>
+          <span>Dashboard & Métricas</span>
+          <span class="nav-badge" style="background: rgba(37,99,235,0.25); color: #60A5FA;">Ao Vivo</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top: 0.75rem;">Gerenciamento</div>
 
         <a href="#/lotes" class="nav-item ${activeRoute === 'lotes' || activeRoute === 'batch' ? 'active' : ''}">
           <span class="nav-item-icon">${getIcon('folder', '', 18)}</span>

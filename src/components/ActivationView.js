@@ -23,12 +23,14 @@ export function renderActivationView(plaqueId) {
     <div class="container py-8" style="max-width: 480px;" id="activation-card-container">
       <div class="card p-6">
         
-        <!-- Cabeçalho -->
-        <div class="mb-5">
+        <!-- Cabeçalho com Logo -->
+        <div class="text-center mb-5">
+          <img src="/logo.png" alt="Rei do NFC" style="height: 72px; width: 72px; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.25));" />
+          <div style="font-size: 0.75rem; font-weight: 800; color: #2563EB; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Rei do NFC Oficial</div>
           <div class="badge ${isAlreadyActive ? 'badge-active' : 'badge-virgin'} mb-2 font-mono">
             Plaquinha: ${escapeHtml(plaque.id)}
           </div>
-          <h1 style="font-size: 1.375rem;">
+          <h1 style="font-size: 1.375rem; font-weight: 800; color: #0F172A;">
             ${isAlreadyActive ? 'Atualizar Plaquinha QR Code' : 'Ativar Minha Plaquinha QR Code'}
           </h1>
           <p class="text-xs text-muted mt-1">

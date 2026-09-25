@@ -161,6 +161,31 @@ export function getIcon(name, className = '', size = 18) {
     case 'info':
       return `<svg ${props}><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>`;
 
+    case 'barchart':
+    case 'chart':
+    case 'metrics':
+    case 'dashboard':
+      return `<svg ${props}><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>`;
+
+    case 'trendingup':
+    case 'growth':
+      return `<svg ${props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`;
+
+    case 'award':
+    case 'trophy':
+    case 'crown':
+      return `<svg ${props}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`;
+
+    case 'piechart':
+      return `<svg ${props}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>`;
+
+    case 'calendar':
+      return `<svg ${props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`;
+
+    case 'zap':
+    case 'bolt':
+      return `<svg ${props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+
     default:
       return `<svg ${props}><circle cx="12" cy="12" r="10"></circle></svg>`;
   }
