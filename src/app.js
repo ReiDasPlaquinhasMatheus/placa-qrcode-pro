@@ -14,7 +14,7 @@ import { renderSettingsView } from './components/SettingsView.js';
 import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
-import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl } from './utils/helpers.js';
+import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
 import { getIcon } from './utils/icons.js';
 
 // Estado global da aplicação com suporte a paginação e filtros
@@ -299,14 +299,27 @@ async function renderApp() {
     setupEventListeners();
   } catch (err) {
     console.error('Erro na renderização da aplicação:', err);
+    const isPublicRoute = window.location.hash.startsWith('#/activate') || 
+                          window.location.hash.startsWith('#/r/') || 
+                          window.location.pathname.startsWith('/r/') ||
+                          window.location.pathname.startsWith('/activate');
+
     appEl.innerHTML = `
       <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #F8FAFC; padding: 1.5rem;">
-        <div class="card p-6" style="max-width: 460px; text-align: center;">
+        <div class="card p-6" style="max-width: 460px; text-align: center; width: 100%;">
+          <img src="/logo.png" alt="Rei do NFC" style="height: 54px; width: 54px; object-fit: contain; margin: 0 auto 12px; filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.25));" />
           <h2 style="font-size: 1.25rem; font-weight: 700; color: #DC2626; margin-bottom: 8px;">Recuperação do Sistema</h2>
-          <p class="text-sm text-muted mb-4">Ocorreu uma pequena instabilidade ao carregar a tela. Clique no botão abaixo para restaurar a visão padrão.</p>
-          <button onclick="window.location.hash='#/lotes'; window.location.reload();" class="btn btn-primary btn-sm">
-            Recarregar Painel
-          </button>
+          <p class="text-sm text-muted mb-4">Ocorreu uma pequena instabilidade ao carregar os dados. Clique abaixo para tentar novamente.</p>
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button onclick="window.location.reload();" class="btn btn-primary btn-sm">
+              Tentar Novamente
+            </button>
+            ${!isPublicRoute ? `
+              <button onclick="window.location.hash='#/lotes'; window.location.reload();" class="btn btn-secondary btn-sm">
+                Ir para o Painel
+              </button>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;
