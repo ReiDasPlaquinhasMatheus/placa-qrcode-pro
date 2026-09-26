@@ -127,9 +127,15 @@ export function renderEditModal(plaqueId) {
             </button>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
-            <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
-            <button type="submit" class="btn btn-primary btn-sm">Salvar Alterações</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-modal-delete-plaque" data-id="${escapeHtml(plaque.id)}" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;" title="Apagar e desvincular esta plaquinha">
+              ${getIcon('trash', '', 14)}
+              <span>Apagar Plaquinha</span>
+            </button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
+              <button type="submit" class="btn btn-primary btn-sm">Salvar Alterações</button>
+            </div>
           </div>
 
         </form>
@@ -243,3 +249,74 @@ export function renderConfirmDeleteBatchModal(batchName, plaqueCount = 0) {
     </div>
   `;
 }
+
+// Modal de Confirmação para Apagar / Desvincular Plaquinha
+export function renderConfirmDeletePlaqueModal(plaqueId, isClient = false) {
+  const plaque = storage.getPlaqueById(plaqueId);
+  if (!plaque) return '';
+
+  const hasPin = Boolean(plaque.pin && plaque.pin.trim() && plaque.pin.trim() !== '1234');
+  const requirePin = isClient && hasPin;
+
+  return `
+    <div class="modal-overlay" id="delete-plaque-modal" data-id="${escapeHtml(plaque.id)}" data-require-pin="${requirePin ? 'true' : 'false'}">
+      <div class="modal-box" style="max-width: 440px;">
+        
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #FEE2E2; display: flex; align-items: center; justify-content: center; color: #DC2626; flex-shrink: 0;">
+            ${getIcon('trash', '', 20)}
+          </div>
+          <div style="flex: 1;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0;">Apagar Plaquinha</h3>
+            <span class="font-mono text-xs text-muted">Código: <strong>${escapeHtml(plaque.id)}</strong></span>
+          </div>
+          <button class="btn-close-modal btn btn-ghost btn-sm" style="padding: 4px 8px;" title="Fechar">
+            ${getIcon('close', '', 16)}
+          </button>
+        </div>
+
+        <div style="font-size: 0.875rem; color: #475569; line-height: 1.5; margin-bottom: 1.25rem;">
+          <p style="margin-bottom: 0.75rem;">
+            Deseja realmente apagar e desvincular a plaquinha <strong>${escapeHtml(plaque.name || plaque.id)}</strong>?
+          </p>
+          <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; font-size: 0.8125rem; color: #92400E; display: flex; gap: 8px;">
+            ${getIcon('alertTriangle', 'text-amber', 18)}
+            <div>
+              <strong>Atenção:</strong> A plaquinha será removida da sua lista e retornará ao estado virgem pronta para ser reutilizada.
+            </div>
+          </div>
+        </div>
+
+        ${requirePin ? `
+          <div style="margin-bottom: 1.25rem;">
+            <label for="delete-plaque-pin" class="form-label" style="font-size: 0.8125rem; font-weight: 600; color: #0F172A;">
+              Digite o PIN de segurança para confirmar:
+            </label>
+            <input 
+              type="password" 
+              id="delete-plaque-pin" 
+              class="form-input font-mono" 
+              maxlength="6" 
+              placeholder="Digite o PIN da plaquinha" 
+              autocomplete="off"
+              style="font-size: 1rem; letter-spacing: 2px; text-align: center;"
+            />
+            <div id="delete-pin-error" style="color: #DC2626; font-size: 0.75rem; margin-top: 4px; display: none;">
+              PIN de segurança incorreto. Tente novamente.
+            </div>
+          </div>
+        ` : ''}
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
+          <button type="button" id="btn-confirm-delete-plaque" class="btn btn-sm" style="background: #DC2626; color: #FFFFFF; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+            ${getIcon('trash', '', 14)}
+            <span>Sim, Apagar Plaquinha</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+

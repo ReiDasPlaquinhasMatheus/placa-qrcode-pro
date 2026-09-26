@@ -11,7 +11,7 @@ import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderDashboardView } from './components/DashboardView.js';
 import { renderSettingsView } from './components/SettingsView.js';
-import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal } from './components/Modals.js';
+import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
@@ -666,14 +666,23 @@ function setupEventListeners() {
     });
   });
 
-  document.querySelectorAll('.btn-reset-plaque').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+  document.querySelectorAll('.btn-client-delete-plaque').forEach(btn => {
+    btn.addEventListener('click', (e) => {
       const id = e.currentTarget.dataset.id;
       if (!id) return;
-      if (confirm(`Deseja realmente resetar a plaquinha ${id} para o estado Virgem (desvincular empresa e cliente)?`)) {
-        await storage.resetPlaque(id);
-        renderApp();
-      }
+      state.activePlaqueId = id;
+      modalContainer.innerHTML = renderConfirmDeletePlaqueModal(id, true);
+      setupModalListeners();
+    });
+  });
+
+  document.querySelectorAll('.btn-reset-plaque').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (!id) return;
+      state.activePlaqueId = id;
+      modalContainer.innerHTML = renderConfirmDeletePlaqueModal(id, false);
+      setupModalListeners();
     });
   });
 
@@ -1316,6 +1325,59 @@ function setupModalListeners() {
         }
       } else {
         alert(res.error || 'Erro ao excluir lote.');
+      }
+    });
+  }
+
+  // Botão "Apagar Plaquinha" dentro do Modal de Edição
+  const btnModalDelete = document.querySelector('.btn-modal-delete-plaque');
+  if (btnModalDelete) {
+    btnModalDelete.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (!id) return;
+      state.activePlaqueId = id;
+      const isClient = state.currentRoute === 'cliente';
+      modalContainer.innerHTML = renderConfirmDeletePlaqueModal(id, isClient);
+      setupModalListeners();
+    });
+  }
+
+  // Confirmação de Exclusão / Reset de Plaquinha
+  const btnConfirmDeletePlaque = document.getElementById('btn-confirm-delete-plaque');
+  if (btnConfirmDeletePlaque) {
+    btnConfirmDeletePlaque.addEventListener('click', async () => {
+      const modal = document.getElementById('delete-plaque-modal');
+      const plaqueId = modal?.dataset.id;
+      const requirePin = modal?.dataset.requirePin === 'true';
+      if (!plaqueId) return;
+
+      if (requirePin) {
+        const plaque = storage.getPlaqueById(plaqueId);
+        const pinInput = document.getElementById('delete-plaque-pin');
+        const errorEl = document.getElementById('delete-pin-error');
+        const enteredPin = (pinInput?.value || '').trim();
+
+        if (!plaque || !plaque.pin || enteredPin !== String(plaque.pin).trim()) {
+          if (errorEl) errorEl.style.display = 'block';
+          if (pinInput) {
+            pinInput.style.borderColor = '#DC2626';
+            pinInput.focus();
+          }
+          return;
+        }
+      }
+
+      btnConfirmDeletePlaque.disabled = true;
+      btnConfirmDeletePlaque.textContent = 'Apagando plaquinha...';
+
+      try {
+        await storage.resetPlaque(plaqueId);
+        closeModal();
+        renderApp();
+      } catch (err) {
+        alert('Erro ao apagar plaquinha: ' + err.message);
+        btnConfirmDeletePlaque.disabled = false;
+        btnConfirmDeletePlaque.textContent = 'Sim, Apagar Plaquinha';
       }
     });
   }

@@ -864,15 +864,18 @@ class StorageService {
   }
 
   async resetPlaque(id) {
-    return this.updatePlaque(id, {
+    const res = await this.updatePlaque(id, {
       name: '',
       status: 'virgin',
       target_url: '',
       client_name: '',
       client_phone: '',
       client_code: '',
-      activated_at: null
+      activated_at: null,
+      pin: '1234'
     });
+    await this.flushSyncQueue();
+    return res;
   }
 
   async recordScan(id) {

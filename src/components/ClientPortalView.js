@@ -405,6 +405,9 @@ export function renderClientPortalView({
                         <button class="btn btn-primary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Alterar Link de Destino">
                           ${getIcon('edit', '', 14)} Alterar
                         </button>
+                        <button class="btn btn-sm btn-client-delete-plaque" data-id="${escapeHtml(plaque.id)}" title="Apagar / Desvincular Plaquinha" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                          ${getIcon('trash', '', 14)} Apagar
+                        </button>
                       </div>
                     </td>
                   </tr>
