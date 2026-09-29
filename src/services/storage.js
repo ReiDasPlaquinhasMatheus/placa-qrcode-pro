@@ -820,10 +820,10 @@ class StorageService {
         const rows = await this.callRpc('public_get_plaque', { p_id: cleanId }, 3500);
         const cloudPlaque = Array.isArray(rows) ? rows[0] : rows;
         if (cloudPlaque && cloudPlaque.id) {
-          this.plaquesMap.set(cloudPlaque.id.toUpperCase(), cloudPlaque);
-          if (!this.plaques.some(p => p.id.toUpperCase() === cloudPlaque.id.toUpperCase())) {
-            this.plaques.unshift(cloudPlaque);
-          }
+          const upperId = cloudPlaque.id.toUpperCase();
+          this.plaquesMap.set(upperId, cloudPlaque);
+          this.plaques = this.plaques.filter(p => p.id.toUpperCase() !== upperId);
+          this.plaques.unshift(cloudPlaque);
           this.invalidateCache();
           this.saveToDisk(this.plaques);
           return cloudPlaque;
@@ -844,10 +844,14 @@ class StorageService {
         const rows = await this.callRpc('public_get_client_plaques', { p_query: String(codeOrPhone).trim() }, 3500);
         if (Array.isArray(rows) && rows.length > 0) {
           rows.forEach(p => {
-            this.plaquesMap.set(p.id.toUpperCase(), p);
-            if (!this.plaques.some(item => item.id.toUpperCase() === p.id.toUpperCase())) {
-              this.plaques.unshift(p);
-            }
+            const upperId = p.id.toUpperCase();
+            this.plaquesMap.set(upperId, p);
+            // Substitui qualquer entrada local desatualizada (não só
+            // adiciona se ausente) — sem isso, um cache local obsoleto
+            // (ex: placa ainda "virgem" antes de ativar) nunca era
+            // atualizado com o estado real vindo da nuvem.
+            this.plaques = this.plaques.filter(item => item.id.toUpperCase() !== upperId);
+            this.plaques.unshift(p);
           });
           this.invalidateCache();
           this.saveToDisk(this.plaques);
