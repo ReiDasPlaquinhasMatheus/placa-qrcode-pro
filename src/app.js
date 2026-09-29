@@ -207,8 +207,19 @@ async function renderApp() {
     // 4. Tela de Login do Administrador / Dono
     if (route.name === 'admin-login') {
       if (storage.isAdminAuthenticated()) {
-        window.location.hash = '#/lotes';
-        return;
+        // Se a URL foi acessada como caminho direto (/admin-login, sem
+        // hash), getRoute() sempre reconhece essa rota pelo "cleanPath",
+        // então só trocar o hash (#/lotes) não muda o pathname e a
+        // próxima renderização cai de novo aqui — travando a tela em
+        // "Verificando...". Por isso trocamos a URL inteira (pathname +
+        // hash) com replaceState e re-renderizamos direto, sem depender
+        // do evento hashchange.
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', '/#/lotes');
+        } else {
+          window.location.hash = '#/lotes';
+        }
+        return renderApp();
       }
       appEl.innerHTML = `
         ${renderAdminLoginView()}
