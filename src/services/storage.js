@@ -950,7 +950,51 @@ class StorageService {
     return plaque;
   }
 
-  async resetPlaque(id) {
+  // Sem pinAttempt: reset feito pelo admin (exige sessão de admin, via
+  // updatePlaque/syncPlaquesAsAdmin). Com pinAttempt: o próprio cliente
+  // apagando a placa dele pelo Portal — validado no banco via RPC
+  // pública, sem exigir sessão de administrador.
+  async resetPlaque(id, pinAttempt = null) {
+    if (pinAttempt) {
+      let rows;
+      try {
+        rows = await this.callRpc('public_reset_plaque', { p_id: id, p_pin_attempt: pinAttempt });
+      } catch (err) {
+        const msg = String(err && err.message || '');
+        if (msg === 'INVALID_PIN') {
+          throw new Error('PIN de segurança incorreto.');
+        }
+        if (msg === 'PLAQUE_NOT_FOUND') {
+          throw new Error('Plaquinha não encontrada.');
+        }
+        throw new Error('Não foi possível apagar agora. Verifique sua conexão e tente novamente.');
+      }
+
+      const result = Array.isArray(rows) ? rows[0] : rows;
+      if (!result) {
+        throw new Error('Não foi possível confirmar a exclusão. Tente novamente.');
+      }
+
+      const plaque = this.getPlaqueById(id);
+      const resetFields = {
+        name: '',
+        status: 'virgin',
+        target_url: '',
+        client_name: '',
+        client_phone: '',
+        client_code: '',
+        activated_at: null,
+        pin: '1234'
+      };
+      if (plaque) {
+        Object.assign(plaque, resetFields);
+        this.invalidateCache();
+        idb.putPlaque(plaque).catch(() => {});
+        this.saveToDisk(this.plaques);
+      }
+      return plaque;
+    }
+
     return this.updatePlaque(id, {
       name: '',
       status: 'virgin',

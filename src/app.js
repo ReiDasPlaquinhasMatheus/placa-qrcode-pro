@@ -1354,14 +1354,17 @@ function setupModalListeners() {
       const requirePin = modal?.dataset.requirePin === 'true';
       if (!plaqueId) return;
 
-      if (requirePin) {
-        const plaque = storage.getPlaqueById(plaqueId);
-        const pinInput = document.getElementById('delete-plaque-pin');
-        const errorEl = document.getElementById('delete-pin-error');
-        const enteredPin = (pinInput?.value || '').trim();
+      const pinInput = document.getElementById('delete-plaque-pin');
+      const errorEl = document.getElementById('delete-pin-error');
+      let enteredPin = null;
 
-        if (!plaque || !plaque.pin || enteredPin !== String(plaque.pin).trim()) {
-          if (errorEl) errorEl.style.display = 'block';
+      if (requirePin) {
+        enteredPin = (pinInput?.value || '').trim();
+        if (!enteredPin) {
+          if (errorEl) {
+            errorEl.textContent = 'Informe o PIN de segurança para confirmar.';
+            errorEl.style.display = 'block';
+          }
           if (pinInput) {
             pinInput.style.borderColor = '#DC2626';
             pinInput.focus();
@@ -1374,11 +1377,22 @@ function setupModalListeners() {
       btnConfirmDeletePlaque.textContent = 'Apagando plaquinha...';
 
       try {
-        await storage.resetPlaque(plaqueId);
+        // PIN é validado no banco (public_reset_plaque), não mais no
+        // navegador — o cache local do cliente nem tem mais o campo pin.
+        await storage.resetPlaque(plaqueId, requirePin ? enteredPin : null);
         closeModal();
         renderApp();
       } catch (err) {
-        alert('Erro ao apagar plaquinha: ' + err.message);
+        if (requirePin && errorEl) {
+          errorEl.textContent = err.message || 'PIN de segurança incorreto. Tente novamente.';
+          errorEl.style.display = 'block';
+          if (pinInput) {
+            pinInput.style.borderColor = '#DC2626';
+            pinInput.focus();
+          }
+        } else {
+          alert('Erro ao apagar plaquinha: ' + err.message);
+        }
         btnConfirmDeletePlaque.disabled = false;
         btnConfirmDeletePlaque.textContent = 'Sim, Apagar Plaquinha';
       }

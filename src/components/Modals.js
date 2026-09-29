@@ -255,8 +255,11 @@ export function renderConfirmDeletePlaqueModal(plaqueId, isClient = false) {
   const plaque = storage.getPlaqueById(plaqueId);
   if (!plaque) return '';
 
-  const hasPin = Boolean(plaque.pin && plaque.pin.trim() && plaque.pin.trim() !== '1234');
-  const requirePin = isClient && hasPin;
+  // O PIN agora é validado no banco (public_reset_plaque), não mais
+  // comparado aqui — o cache local do cliente nem recebe mais o campo
+  // pin das APIs públicas. Por isso, no fluxo do cliente, sempre pedimos
+  // o PIN e deixamos o servidor decidir se está correto.
+  const requirePin = isClient;
 
   return `
     <div class="modal-overlay" id="delete-plaque-modal" data-id="${escapeHtml(plaque.id)}" data-require-pin="${requirePin ? 'true' : 'false'}">
