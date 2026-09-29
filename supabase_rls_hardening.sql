@@ -214,7 +214,11 @@ declare
   v_id text := upper(trim(p_id));
   v_row public.plaques%rowtype;
 begin
-  select * into v_row from public.plaques where id = v_id;
+  -- Observação: como esta função declara RETURNS TABLE(id, name, status, ...),
+  -- o PL/pgSQL cria variáveis de saída com esses mesmos nomes. Por isso toda
+  -- referência à tabela `plaques` abaixo usa o alias `t`/`p` explicitamente
+  -- (sem isso, "id"/"name"/"status" ficam ambíguos entre coluna e variável).
+  select * into v_row from public.plaques t where t.id = v_id;
   if not found then
     raise exception 'PLAQUE_NOT_FOUND';
   end if;
@@ -229,7 +233,7 @@ begin
     raise exception 'INVALID_URL';
   end if;
 
-  update public.plaques set
+  update public.plaques t set
     name = coalesce(nullif(trim(p_name), ''), v_row.name, 'Empresa Cadastrada'),
     target_url = p_target_url,
     status = 'active',
@@ -238,7 +242,7 @@ begin
     client_name = coalesce(nullif(trim(p_client_name), ''), v_row.client_name),
     client_phone = coalesce(nullif(trim(p_client_phone), ''), v_row.client_phone),
     client_code = coalesce(nullif(trim(p_client_code), ''), v_row.client_code)
-  where id = v_id;
+  where t.id = v_id;
 
   return query
     select p.id, p.name, p.status, p.target_url,
