@@ -134,12 +134,17 @@ async function runSecurityAudit() {
   storage.logoutAdmin();
   assert(storage.isAdminAuthenticated() === false, 'Após logout, estado de admin deve ser false');
 
+  // Define uma credencial de teste isolada (não usa senha real de produção)
+  const testUser = 'teste_qa';
+  const testPass = 'SenhaDeTesteIsolada_' + Date.now();
+  await storage.setAdminCredentials(testUser, testPass);
+
   // Tentativa de login admin com credenciais incorretas
-  const badLogin = await storage.loginAdmin('Matheus', 'senhaErrada123');
+  const badLogin = await storage.loginAdmin(testUser, 'senhaErrada123');
   assert(badLogin.success === false, 'Login de Dono com senha incorreta deve ser BLOQUEADO');
 
   // Login admin correto
-  const goodLogin = await storage.loginAdmin('Matheus', 'Helena2026');
+  const goodLogin = await storage.loginAdmin(testUser, testPass);
   assert(goodLogin.success === true, 'Login de Dono com credenciais corretas deve ser AUTORIZADO');
 
   // 7. Teste de Proteção de Backup JSON (Sem vazamento de senhas)

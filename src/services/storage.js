@@ -7,9 +7,9 @@ import { idb } from './db.js';
 const STORAGE_KEY = 'placa_qrcode_pro_data_v6';
 const SETTINGS_KEY = 'placa_qrcode_pro_settings_v6';
 
-// Hash SHA-256 padrão para as credenciais do Dono (Usuário: Matheus / Senha: Helena2026)
+// Credenciais padrão do Dono. Após o primeiro login, troque em Configurações > Credenciais.
 const DEFAULT_ADMIN_USER = 'Matheus';
-const DEFAULT_ADMIN_HASH = '926e64810cf9b064d7098f910baf556a387300d31ef8aaa83327f34f1d9fca37';
+const DEFAULT_ADMIN_HASH = '48992b376198f6a96c4856c6479377108d0919dcd93c89af68bd961081068ce8';
 
 const DEFAULT_SEED_PLAQUES = [];
 
