@@ -271,6 +271,127 @@ class StorageService {
     } catch (e) {}
   }
 
+  // Senha opcional do Portal do Cliente — sessão salva como
+  // {code, token}, um slot só (um navegador = um negócio, na prática)
+  getClientSessionInfo() {
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('placa_client_session_v1');
+        return raw ? JSON.parse(raw) : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  setClientSessionInfo(code, token) {
+    try {
+      if (typeof window !== 'undefined' && code && token) {
+        localStorage.setItem('placa_client_session_v1', JSON.stringify({ code, token }));
+      }
+    } catch (e) {}
+  }
+
+  clearClientSessionInfo() {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('placa_client_session_v1');
+      }
+    } catch (e) {}
+  }
+
+  // Aceita telefone OU código invertido. Retorna o client_code CANÔNICO
+  // se essa conta já tem senha configurada (usar esse valor, não o que
+  // foi digitado, nas chamadas de client_login/client_set_password) ou
+  // null (não encontrado, ou encontrado mas sem senha — acesso normal).
+  async checkClientHasPassword(query) {
+    try {
+      const result = await this.callRpc('client_has_password', { p_query: query }, 5000);
+      return result || null;
+    } catch (e) {
+      // Falha de rede não deve travar o acesso normal por telefone
+      return null;
+    }
+  }
+
+  // Busca as placas do cliente usando a sessão de senha já validada
+  async fetchClientBySession(clientCode) {
+    const session = this.getClientSessionInfo();
+    if (!session || session.code !== clientCode || !session.token) return false;
+
+    try {
+      const rows = await this.callRpc('public_get_client_plaques_by_session', { p_token: session.token }, 5000);
+      if (Array.isArray(rows) && rows.length > 0) {
+        rows.forEach(p => {
+          const upperId = p.id.toUpperCase();
+          this.plaquesMap.set(upperId, p);
+          this.plaques = this.plaques.filter(item => item.id.toUpperCase() !== upperId);
+          this.plaques.unshift(p);
+        });
+        this.invalidateCache();
+        this.saveToDisk(this.plaques);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async clientLogin(clientCode, password) {
+    if (!password) return { success: false, error: 'Digite sua senha.' };
+    const hash = await sha256Hex(password);
+    let token;
+    try {
+      token = await this.callRpc('client_login', { p_client_code: clientCode, p_password_hash: hash }, 6000);
+    } catch (e) {
+      return { success: false, error: 'Não foi possível entrar agora. Verifique sua conexão e tente novamente.' };
+    }
+    if (!token) {
+      return { success: false, error: 'Senha incorreta.' };
+    }
+    this.setClientSessionInfo(clientCode, token);
+    const ok = await this.fetchClientBySession(clientCode);
+    if (!ok) {
+      return { success: false, error: 'Não foi possível carregar seus dados agora. Tente novamente.' };
+    }
+    return { success: true };
+  }
+
+  // Configura (ou troca — "esqueci minha senha" usa a mesma chamada) a
+  // senha do cliente. O telefone é a prova de posse, validada no banco.
+  async clientSetPassword(clientCode, phoneAttempt, newPassword) {
+    if (!phoneAttempt || !phoneAttempt.trim()) {
+      return { success: false, error: 'Informe seu telefone de contato.' };
+    }
+    if (!newPassword || newPassword.trim().length < 4) {
+      return { success: false, error: 'A senha deve ter pelo menos 4 caracteres.' };
+    }
+    const hash = await sha256Hex(newPassword.trim());
+    let token;
+    try {
+      token = await this.callRpc('client_set_password', {
+        p_client_code: clientCode,
+        p_phone_attempt: phoneAttempt.trim(),
+        p_new_password_hash: hash
+      }, 6000);
+    } catch (err) {
+      const msg = String(err && err.message || '');
+      if (msg === 'PHONE_MISMATCH') {
+        return { success: false, error: 'Esse telefone não confere com o cadastrado nesta conta.' };
+      }
+      return { success: false, error: 'Não foi possível configurar a senha agora. Verifique sua conexão e tente novamente.' };
+    }
+    if (!token) {
+      return { success: false, error: 'Não foi possível confirmar. Tente novamente.' };
+    }
+    this.setClientSessionInfo(clientCode, token);
+    return { success: true };
+  }
+
+  clientLogout() {
+    this.clearClientSessionInfo();
+  }
+
   // Chamada genérica de função (RPC) do Supabase. Toda leitura/escrita
   // hoje passa por funções SECURITY DEFINER no banco em vez de acesso
   // direto à tabela `plaques` com a anon key.

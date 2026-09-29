@@ -11,7 +11,7 @@ import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderDashboardView } from './components/DashboardView.js';
 import { renderSettingsView } from './components/SettingsView.js';
-import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal } from './components/Modals.js';
+import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
@@ -58,7 +58,12 @@ const state = {
   portalSearch: '',
   portalFilter: 'all',
   portalPage: 1,
-  portalPerPage: 25
+  portalPerPage: 25,
+
+  // Senha opcional do Portal do Cliente
+  portalPasswordRequired: false,
+  portalPasswordCode: null,
+  portalShowPasswordBanner: false
 };
 
 // Router híbrido flexível (suporta Hash e Pathname direto)
@@ -195,13 +200,51 @@ async function renderApp() {
 
     // 3. Portal do Comprador / Cliente (SEM SIDEBAR DE ADMIN)
     if (route.name === 'cliente') {
-      if (route.params?.code && !storage.getClientByCode(route.params.code)) {
-        await storage.fetchClientFromCloud(route.params.code);
+      const portalCode = route.params?.code || null;
+
+      if (!portalCode) {
+        state.portalPasswordRequired = false;
+        state.portalShowPasswordBanner = false;
+        state.portalPasswordCode = null;
+      } else if (!storage.getClientByCode(portalCode)) {
+        // Ainda não temos os dados localmente. Se já existe sessão de
+        // senha válida, tenta usá-la primeiro (pode ter sido criada com
+        // o código canônico, mesmo que a URL/busca use o telefone cru).
+        const session = storage.getClientSessionInfo();
+        if (session && session.token) {
+          const ok = await storage.fetchClientBySession(session.code);
+          if (!ok || !storage.getClientByCode(portalCode)) {
+            if (!storage.getClientByCode(portalCode)) {
+              storage.clearClientSessionInfo();
+            }
+          }
+        }
+
+        if (!storage.getClientByCode(portalCode)) {
+          const resolvedCode = await storage.checkClientHasPassword(portalCode);
+          if (resolvedCode) {
+            state.portalPasswordRequired = true;
+            state.portalPasswordCode = resolvedCode;
+            state.portalShowPasswordBanner = false;
+          } else {
+            await storage.fetchClientFromCloud(portalCode);
+            state.portalPasswordRequired = false;
+            state.portalPasswordCode = null;
+            state.portalShowPasswordBanner = true;
+          }
+        } else {
+          state.portalPasswordRequired = false;
+          state.portalPasswordCode = null;
+          state.portalShowPasswordBanner = false;
+        }
       }
 
       appEl.innerHTML = `
         ${renderClientPortalView({
-          clientCode: route.params?.code,
+          clientCode: portalCode,
+          passwordRequired: state.portalPasswordRequired,
+          passwordCode: state.portalPasswordCode,
+          showPasswordBanner: state.portalShowPasswordBanner,
           searchQuery: state.portalSearch,
           statusFilter: state.portalFilter,
           currentPage: state.portalPage,
@@ -778,13 +821,76 @@ function setupEventListeners() {
       e.preventDefault();
       const input = document.getElementById('client-login-input').value.trim();
       if (!input) return;
+      // A resolução (telefone ou código, existe ou não, tem senha ou
+      // não) acontece depois, na própria rota #/cliente/:code.
+      window.location.hash = `#/cliente/${encodeURIComponent(input)}`;
+    });
+  }
 
-      const client = storage.getClientByCode(input);
-      if (client) {
-        window.location.hash = `#/cliente/${encodeURIComponent(client.client_code)}`;
+  // Login do Portal do Cliente COM senha (conta já protegida)
+  const formClientPasswordLogin = document.getElementById('form-client-password-login');
+  if (formClientPasswordLogin) {
+    formClientPasswordLogin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = formClientPasswordLogin.dataset.code;
+      const passInput = document.getElementById('client-password-input');
+      const errorEl = document.getElementById('client-password-error');
+      const password = passInput?.value || '';
+      const submitBtn = document.getElementById('btn-submit-client-password');
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Verificando...'; }
+
+      const res = await storage.clientLogin(code, password);
+      if (res.success) {
+        state.portalPasswordRequired = false;
+        state.portalPasswordCode = null;
+        renderApp();
       } else {
-        alert('Nenhum comprador encontrado com este telefone ou código invertido. Verifique o número digitado.');
+        if (errorEl) { errorEl.textContent = res.error; errorEl.style.display = 'block'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Entrar'; }
       }
+    });
+  }
+
+  // "Esqueci minha senha" — reaproveita o mesmo modal de configurar senha
+  const linkForgotPassword = document.getElementById('link-forgot-client-password');
+  if (linkForgotPassword) {
+    linkForgotPassword.addEventListener('click', (e) => {
+      e.preventDefault();
+      const code = linkForgotPassword.dataset.code;
+      modalContainer.innerHTML = renderClientSetPasswordModal(code, '');
+      setupModalListeners();
+    });
+  }
+
+  // Banner "Proteger minha conta com senha" (aparece uma vez, dispensável)
+  const btnSetupPassword = document.getElementById('btn-setup-client-password');
+  if (btnSetupPassword) {
+    btnSetupPassword.addEventListener('click', () => {
+      const code = btnSetupPassword.dataset.code;
+      const phone = btnSetupPassword.dataset.phone || '';
+      modalContainer.innerHTML = renderClientSetPasswordModal(code, phone);
+      setupModalListeners();
+    });
+  }
+
+  const btnDismissPasswordBanner = document.getElementById('btn-dismiss-password-banner');
+  if (btnDismissPasswordBanner) {
+    btnDismissPasswordBanner.addEventListener('click', () => {
+      const code = btnDismissPasswordBanner.dataset.code;
+      try {
+        localStorage.setItem('portal_pw_banner_dismissed_' + code, '1');
+      } catch (err) {}
+      state.portalShowPasswordBanner = false;
+      renderApp();
+    });
+  }
+
+  // Sair do Portal do Cliente (limpa também a sessão de senha, se houver)
+  const btnClientLogout = document.getElementById('btn-client-logout');
+  if (btnClientLogout) {
+    btnClientLogout.addEventListener('click', () => {
+      storage.clientLogout();
     });
   }
 
@@ -1251,6 +1357,42 @@ function setupModalListeners() {
   document.querySelectorAll('.btn-close-modal').forEach(btn => {
     btn.addEventListener('click', closeModal);
   });
+
+  // Configurar / trocar a senha do Portal do Cliente
+  const formSetClientPassword = document.getElementById('form-client-set-password');
+  if (formSetClientPassword) {
+    formSetClientPassword.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('client-set-password-modal');
+      const code = modal?.dataset.code;
+      const phone = document.getElementById('csp-phone')?.value || '';
+      const pass = document.getElementById('csp-password')?.value || '';
+      const passConfirm = document.getElementById('csp-password-confirm')?.value || '';
+      const errorEl = document.getElementById('csp-error');
+      const submitBtn = document.getElementById('btn-submit-client-set-password');
+
+      if (pass !== passConfirm) {
+        if (errorEl) { errorEl.textContent = 'As senhas digitadas não conferem.'; errorEl.style.display = 'block'; }
+        return;
+      }
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
+
+      const res = await storage.clientSetPassword(code, phone, pass);
+      if (res.success) {
+        try { localStorage.setItem('portal_pw_banner_dismissed_' + code, '1'); } catch (err) {}
+        closeModal();
+        state.portalPasswordRequired = false;
+        state.portalPasswordCode = null;
+        state.portalShowPasswordBanner = false;
+        await storage.fetchClientBySession(code);
+        renderApp();
+      } else {
+        if (errorEl) { errorEl.textContent = res.error; errorEl.style.display = 'block'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Senha'; }
+      }
+    });
+  }
 
   // Fechar ao clicar no fundo escuro do modal
   const modalOverlay = document.querySelector('.modal-overlay');

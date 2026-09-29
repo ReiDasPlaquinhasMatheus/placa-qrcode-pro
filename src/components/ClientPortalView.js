@@ -3,13 +3,118 @@ import { formatPhone, formatRelativeTime, escapeHtml } from '../utils/helpers.js
 import { getIcon } from '../utils/icons.js';
 import { renderPagination } from './Pagination.js';
 
+function renderClientPortalLoginStyles() {
+  return `
+    <style>
+      .client-portal-login-screen {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 85% 35%, rgba(59, 130, 246, 0.45) 0%, transparent 55%),
+                    radial-gradient(circle at 15% 75%, rgba(29, 78, 216, 0.5) 0%, transparent 60%),
+                    linear-gradient(135deg, #06112E 0%, #0A2268 40%, #1D4ED8 85%, #2563EB 100%);
+        padding: 2.5rem 1.5rem;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .portal-bg-orb {
+        position: absolute;
+        right: 5%;
+        top: 20%;
+        width: 500px;
+        height: 500px;
+        background: radial-gradient(circle, rgba(96, 165, 250, 0.35) 0%, rgba(37, 99, 235, 0.1) 60%, transparent 70%);
+        border-radius: 50%;
+        filter: blur(60px);
+        pointer-events: none;
+      }
+
+      .client-login-card {
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(6, 17, 46, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4);
+        max-width: 480px;
+        width: 100%;
+        padding: 2.75rem 2.25rem 2.25rem;
+        position: relative;
+        z-index: 10;
+      }
+
+      .client-login-card input:focus {
+        background: #FFFFFF !important;
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+        outline: none !important;
+      }
+    </style>
+  `;
+}
+
 export function renderClientPortalView({
   clientCode = null,
+  passwordRequired = false,
+  passwordCode = null,
+  showPasswordBanner = false,
   searchQuery = '',
   statusFilter = 'all',
   currentPage = 1,
   perPage = 25
 } = {}) {
+  // 0. Conta já tem senha configurada e ainda não validamos nesta sessão
+  if (clientCode && passwordRequired) {
+    return `
+      <div class="client-portal-login-screen">
+        ${renderClientPortalLoginStyles()}
+        <div class="portal-bg-orb"></div>
+        <div class="client-login-card">
+          <div style="margin-bottom: 1.75rem;">
+            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: #EEF4FF; border: 1px solid #C7D9FF; border-radius: 999px; color: #1D4ED8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.25rem;">
+              ${getIcon('lock', '', 13)}
+              Conta Protegida
+            </div>
+            <h1 style="font-size: 1.6rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+              Digite sua senha
+            </h1>
+            <p style="font-size: 0.875rem; color: #64748B; line-height: 1.5; margin: 0;">
+              Essa conta está protegida por senha. Digite para acessar suas plaquinhas.
+            </p>
+          </div>
+
+          <form id="form-client-password-login" data-code="${escapeHtml(passwordCode || clientCode)}">
+            <input
+              type="password"
+              id="client-password-input"
+              class="form-input"
+              placeholder="Sua senha"
+              style="font-size: 0.95rem; padding: 0.95rem 1rem; border: 1.5px solid #CBD5E1; border-radius: 12px; width: 100%; background: #F8FAFC; color: #0F172A;"
+              required
+              autofocus
+            />
+            <div id="client-password-error" style="color: #DC2626; font-size: 0.8125rem; margin-top: 8px; display: none;"></div>
+
+            <button type="submit" id="btn-submit-client-password" class="btn btn-primary w-full" style="margin-top: 1.25rem; padding: 0.9rem 1.5rem; font-weight: 700;">
+              Entrar
+            </button>
+          </form>
+
+          <div style="margin-top: 1.5rem; text-align: center; display: flex; flex-direction: column; gap: 10px;">
+            <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.8125rem; color: #2563EB; font-weight: 600; text-decoration: none;">
+              Esqueci minha senha
+            </a>
+            <a href="#/cliente" style="font-size: 0.8125rem; color: #64748B; text-decoration: none;">
+              Voltar
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   const client = clientCode ? storage.getClientByCode(clientCode) : null;
 
   // 1. Tela de Login Sem Senha (apenas número invertido ou telefone)
@@ -263,7 +368,7 @@ export function renderClientPortalView({
             <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono" style="gap: 4px;">
               ${getIcon('key', '', 13)} Código: <strong>${escapeHtml(client.client_code)}</strong>
             </div>
-            <a href="#/cliente" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+            <a href="#/cliente" id="btn-client-logout" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
               ${getIcon('logOut', '', 14)}
               <span>Sair</span>
             </a>
@@ -273,7 +378,32 @@ export function renderClientPortalView({
 
       <!-- Conteúdo Principal -->
       <div class="container py-8">
-        
+
+        ${(() => {
+          if (!showPasswordBanner) return '';
+          let dismissed = false;
+          try {
+            dismissed = typeof localStorage !== 'undefined' && localStorage.getItem('portal_pw_banner_dismissed_' + client.client_code) === '1';
+          } catch (e) {}
+          if (dismissed) return '';
+          return `
+            <div id="portal-password-banner" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 12px 16px; margin-bottom: 1.5rem;">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 0.8125rem; color: #1E3A8A;">
+                ${getIcon('lock', '', 16)}
+                <span><strong>Proteja sua conta:</strong> configure uma senha para acessar suas plaquinhas com mais segurança.</span>
+              </div>
+              <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                <button id="btn-setup-client-password" data-code="${escapeHtml(client.client_code)}" data-phone="${escapeHtml(client.phone || '')}" class="btn btn-primary btn-sm">
+                  Configurar agora
+                </button>
+                <button id="btn-dismiss-password-banner" data-code="${escapeHtml(client.client_code)}" class="btn btn-ghost btn-sm">
+                  Agora não
+                </button>
+              </div>
+            </div>
+          `;
+        })()}
+
         <!-- Cards de Resumo do Cliente -->
         <div class="grid grid-cols-3 gap-4 mb-6">
           <div class="card p-4">

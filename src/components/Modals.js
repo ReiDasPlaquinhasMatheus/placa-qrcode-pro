@@ -323,3 +323,58 @@ export function renderConfirmDeletePlaqueModal(plaqueId, isClient = false) {
   `;
 }
 
+// Modal para o cliente configurar (ou trocar/recuperar) a senha do
+// Portal. O telefone é a prova de posse, validada no banco.
+export function renderClientSetPasswordModal(clientCode, phoneHint = '') {
+  return `
+    <div class="modal-overlay" id="client-set-password-modal" data-code="${escapeHtml(clientCode || '')}">
+      <div class="modal-box" style="max-width: 420px;">
+
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #EEF4FF; display: flex; align-items: center; justify-content: center; color: #2563EB; flex-shrink: 0;">
+            ${getIcon('lock', '', 20)}
+          </div>
+          <div style="flex: 1;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0;">Proteger Minha Conta</h3>
+            <span class="text-xs text-muted">Configure uma senha de acesso</span>
+          </div>
+          <button class="btn-close-modal btn btn-ghost btn-sm" style="padding: 4px 8px;" title="Fechar">
+            ${getIcon('close', '', 16)}
+          </button>
+        </div>
+
+        <p style="font-size: 0.8125rem; color: #475569; line-height: 1.5; margin-bottom: 1.25rem;">
+          Confirme seu telefone de contato (o mesmo usado na ativação das suas plaquinhas) e escolha uma senha. Nas próximas visitas, essa senha será pedida antes de mostrar seus dados.
+        </p>
+
+        <form id="form-client-set-password">
+          <div class="form-group mb-3">
+            <label class="form-label" for="csp-phone" style="font-size: 0.8125rem; font-weight: 600;">Telefone de Contato</label>
+            <input type="tel" id="csp-phone" class="form-input font-mono" value="${escapeHtml(phoneHint)}" placeholder="(11) 98765-4321" required />
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label" for="csp-password" style="font-size: 0.8125rem; font-weight: 600;">Nova Senha</label>
+            <input type="password" id="csp-password" class="form-input" minlength="4" placeholder="Pelo menos 4 caracteres" required autocomplete="new-password" />
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label" for="csp-password-confirm" style="font-size: 0.8125rem; font-weight: 600;">Confirmar Senha</label>
+            <input type="password" id="csp-password-confirm" class="form-input" minlength="4" placeholder="Digite a senha novamente" required autocomplete="new-password" />
+          </div>
+
+          <div id="csp-error" style="color: #DC2626; font-size: 0.75rem; margin-bottom: 8px; display: none;"></div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+            <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
+            <button type="submit" id="btn-submit-client-set-password" class="btn btn-primary btn-sm">
+              Salvar Senha
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  `;
+}
+
