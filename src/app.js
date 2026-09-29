@@ -17,6 +17,12 @@ import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGen
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
 import { getIcon } from './utils/icons.js';
 
+// startApp() chama renderApp() duas vezes (uma vez com o cache local e
+// outra depois da sincronização em segundo plano) — sem essa trava, a
+// rota de redirecionamento (/r/:id) registrava 2 scans por visita real,
+// já que as duas passagens caem no mesmo trecho abaixo.
+let lastScanRecordedId = null;
+
 // Estado global da aplicação com suporte a paginação e filtros
 const state = {
   currentRoute: 'lotes',
@@ -148,7 +154,10 @@ async function renderApp() {
       }
 
       if (plaque && plaque.status === 'active' && plaque.target_url && isValidHttpUrl(plaque.target_url)) {
-        storage.recordScan(plaque.id);
+        if (lastScanRecordedId !== plaque.id) {
+          storage.recordScan(plaque.id);
+          lastScanRecordedId = plaque.id;
+        }
         appEl.innerHTML = `
           <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: var(--font-sans);">
             <div style="text-align: center; padding: 2rem;">
