@@ -106,7 +106,7 @@ export function renderClientPortalView({
             <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.8125rem; color: #2563EB; font-weight: 600; text-decoration: none;">
               Esqueci minha senha
             </a>
-            <a href="#/cliente" style="font-size: 0.8125rem; color: #64748B; text-decoration: none;">
+            <a href="#" id="link-portal-password-back" style="font-size: 0.8125rem; color: #64748B; text-decoration: none;">
               Voltar
             </a>
           </div>
@@ -368,7 +368,7 @@ export function renderClientPortalView({
             <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono" style="gap: 4px;">
               ${getIcon('key', '', 13)} Código: <strong>${escapeHtml(client.client_code)}</strong>
             </div>
-            <a href="#/cliente" id="btn-client-logout" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+            <a href="#/cliente" id="btn-client-logout" data-code="${escapeHtml(client.client_code)}" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
               ${getIcon('logOut', '', 14)}
               <span>Sair</span>
             </a>

@@ -388,8 +388,24 @@ class StorageService {
     return { success: true };
   }
 
-  clientLogout() {
+  // Além de limpar a sessão, remove do cache local as placas desse
+  // cliente — sem isso, "Sair" seria só cosmético para uma conta
+  // protegida por senha: os dados continuariam visíveis no cache até
+  // alguém apagar o navegador, mesmo depois de "sair".
+  clientLogout(clientCode) {
     this.clearClientSessionInfo();
+    if (clientCode) {
+      const before = this.plaques.length;
+      this.plaques = this.plaques.filter(p => (p.client_code || '') !== clientCode);
+      if (this.plaques.length !== before) {
+        this.plaquesMap.clear();
+        for (const p of this.plaques) {
+          if (p && p.id) this.plaquesMap.set(p.id.toUpperCase(), p);
+        }
+        this.invalidateCache();
+        this.saveToDisk(this.plaques);
+      }
+    }
   }
 
   // Chamada genérica de função (RPC) do Supabase. Toda leitura/escrita

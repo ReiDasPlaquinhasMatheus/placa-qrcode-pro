@@ -852,6 +852,22 @@ function setupEventListeners() {
     });
   }
 
+  // "Voltar" da tela de senha (mesmo cuidado de pathname vs hash)
+  const linkPortalPasswordBack = document.getElementById('link-portal-password-back');
+  if (linkPortalPasswordBack) {
+    linkPortalPasswordBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.portalPasswordRequired = false;
+      state.portalPasswordCode = null;
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/#/cliente');
+      } else {
+        window.location.hash = '#/cliente';
+      }
+      renderApp();
+    });
+  }
+
   // "Esqueci minha senha" — reaproveita o mesmo modal de configurar senha
   const linkForgotPassword = document.getElementById('link-forgot-client-password');
   if (linkForgotPassword) {
@@ -886,11 +902,27 @@ function setupEventListeners() {
     });
   }
 
-  // Sair do Portal do Cliente (limpa também a sessão de senha, se houver)
+  // Sair do Portal do Cliente — limpa sessão de senha E o cache local
+  // desse cliente (senão "Sair" não esconderia nada de verdade numa
+  // conta protegida por senha, num computador compartilhado)
   const btnClientLogout = document.getElementById('btn-client-logout');
   if (btnClientLogout) {
-    btnClientLogout.addEventListener('click', () => {
-      storage.clientLogout();
+    btnClientLogout.addEventListener('click', (e) => {
+      e.preventDefault();
+      const code = btnClientLogout.dataset.code;
+      storage.clientLogout(code);
+      state.portalPasswordRequired = false;
+      state.portalPasswordCode = null;
+      state.portalShowPasswordBanner = false;
+      // Mesmo cuidado do /admin-login: se a URL foi acessada como
+      // caminho direto (/cliente/:code), só trocar o hash não muda o
+      // pathname e a rota continuaria resolvendo pro mesmo código.
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '/#/cliente');
+      } else {
+        window.location.hash = '#/cliente';
+      }
+      renderApp();
     });
   }
 
