@@ -1161,6 +1161,9 @@ function setupEventListeners() {
       const res = await storage.loginAdmin(userInput.value, passInput.value, rememberMe);
       if (res.success) {
         if (errDiv) errDiv.classList.add('hidden');
+        // Agora que existe sessão de admin, busca o conjunto completo de
+        // placas (via RPC administrativa) e re-renderiza quando chegar
+        storage.initServerSync().then(() => renderApp()).catch(() => {});
         if (window.location.hash === '#/admin-login' || window.location.hash === '#/login') {
           window.location.hash = '#/lotes';
         } else {

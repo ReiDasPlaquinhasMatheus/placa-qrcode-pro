@@ -55,6 +55,36 @@ async function runSecurityAudit() {
     }
   ]);
 
+  // Mock da função RPC public_activate_plaque (Supabase) para testar a
+  // regra de PIN sem depender de rede — espelha fielmente a lógica
+  // implementada em supabase_rls_hardening.sql, onde a validação real
+  // do PIN agora acontece (não mais só no navegador).
+  storage.callRpc = async (fnName, params) => {
+    if (fnName === 'public_activate_plaque') {
+      const plaque = storage.getPlaqueById(params.p_id);
+      if (!plaque) throw new Error('PLAQUE_NOT_FOUND');
+      if (plaque.status === 'active' && plaque.pin) {
+        if (!params.p_pin_attempt || String(params.p_pin_attempt).trim() !== String(plaque.pin).trim()) {
+          throw new Error('INVALID_PIN');
+        }
+      }
+      if (!params.p_target_url || !/^https?:\/\//i.test(params.p_target_url)) {
+        throw new Error('INVALID_URL');
+      }
+      return [{
+        id: plaque.id,
+        name: params.p_name || plaque.name || 'Empresa Cadastrada',
+        status: 'active',
+        target_url: params.p_target_url,
+        client_name: params.p_client_name || plaque.client_name,
+        client_phone: params.p_client_phone || plaque.client_phone,
+        client_code: params.p_client_code || plaque.client_code,
+        activated_at: new Date().toISOString()
+      }];
+    }
+    throw new Error('RPC_NOT_MOCKED_IN_TEST: ' + fnName);
+  };
+
   // 1. Teste de Autenticação Sem Senha por Telefone e Código Invertido
   console.log('\n🔐 1. Testando Lógica de Código de Login Sem Senha...');
   const phoneA = '(11) 98765-4321';

@@ -32,7 +32,7 @@ export async function handler(event, context) {
     ? (event.headers['x-forwarded-proto'] || 'https') + '://' + event.headers.host 
     : '';
 
-  // 1. Credenciais do Supabase
+  // 1. Credenciais do Supabase (anon key — pública por design)
   const supabaseUrl = process.env.SUPABASE_URL || 'https://zhxtmrhrbtqbsjcbvaim.supabase.co';
   const supabaseKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_qzS4vaixU3R0ILND8ejg0g_O-1_Rx2V';
 
@@ -41,47 +41,35 @@ export async function handler(event, context) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3500);
 
-      const response = await fetch(`${supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(normalizedId)}&select=*`, {
+      // Usa a função RPC public_record_scan: o incremento do contador e a
+      // leitura do destino acontecem atomicamente dentro do banco, sem
+      // precisar de SELECT + PATCH livres na tabela com a anon key.
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/public_record_scan`, {
+        method: 'POST',
         signal: controller.signal,
         headers: {
           'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ p_id: normalizedId })
       });
       clearTimeout(timeout);
 
       if (response.ok) {
         const data = await response.json();
-        if (data && data.length > 0) {
-          const plaque = data[0];
+        const result = Array.isArray(data) ? data[0] : data;
 
-          // Se a placa estiver ativa com link válido e seguro
-          if (plaque.status === 'active' && plaque.target_url && isValidHttpUrl(plaque.target_url)) {
-            // Incrementa contador de scans de forma assíncrona
-            fetch(`${supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(normalizedId)}`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-              },
-              body: JSON.stringify({ 
-                scans_count: (plaque.scans_count || 0) + 1,
-                last_scan_at: new Date().toISOString()
-              })
-            }).catch(() => {});
-
-            return {
-              statusCode: 302,
-              headers: {
-                'Location': plaque.target_url,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Content-Type-Options': 'nosniff'
-              },
-              body: ''
-            };
-          }
+        if (result && result.status === 'active' && result.target_url && isValidHttpUrl(result.target_url)) {
+          return {
+            statusCode: 302,
+            headers: {
+              'Location': result.target_url,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'X-Content-Type-Options': 'nosniff'
+            },
+            body: ''
+          };
         }
       }
     } catch (err) {

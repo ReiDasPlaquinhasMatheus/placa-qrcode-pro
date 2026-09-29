@@ -26,10 +26,6 @@ class StorageService {
     this._cachedStats = null;
     this._saveDebounceTimer = null;
 
-    // Fila de sincronização batch
-    this._syncQueue = new Map();
-    this._syncQueueTimer = null;
-
     // Inicialização de dados
     this.initInitialData();
   }
@@ -135,14 +131,33 @@ class StorageService {
     const updates = {
       adminUsername: newUsername.trim()
     };
+    let newHash = null;
     if (newPassword && newPassword.trim()) {
       if (newPassword.trim().length < 3) {
         throw new Error('A senha deve ter pelo menos 3 caracteres.');
       }
-      updates.adminPasswordHash = await sha256Hex(newPassword.trim());
+      newHash = await sha256Hex(newPassword.trim());
+      updates.adminPasswordHash = newHash;
       delete updates.adminPassword;
     }
     this.saveSettings(updates);
+
+    // Mantém a credencial espelhada no banco (admin_credentials) em
+    // sincronia — sem isso, o login local continuaria funcionando mas
+    // as escritas administrativas via RPC parariam (sessão nunca mais
+    // seria emitida, pois admin_login compara com o hash antigo).
+    const sessionToken = this.getAdminSessionToken();
+    if (sessionToken) {
+      try {
+        await this.callRpc('admin_change_credentials', {
+          p_token: sessionToken,
+          p_new_username: newUsername.trim(),
+          p_new_password_hash: newHash
+        });
+      } catch (e) {
+        console.warn('Aviso: credencial local trocada, mas falha ao sincronizar com o Supabase:', e);
+      }
+    }
     return true;
   }
 
@@ -181,10 +196,10 @@ class StorageService {
     if (isUserValid && isPassValid) {
       try {
         if (typeof window !== 'undefined') {
-          const token = (typeof crypto !== 'undefined' && crypto.randomUUID) 
-            ? crypto.randomUUID() 
+          const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
             : Math.random().toString(36).substring(2) + Date.now().toString(36);
-          
+
           if (rememberMe) {
             const expiresAt = Date.now() + (1000 * 60 * 60 * 24 * 7); // 7 dias
             localStorage.setItem('placa_admin_auth_token', JSON.stringify({ token, expiresAt }));
@@ -193,6 +208,23 @@ class StorageService {
           }
         }
       } catch (e) {}
+
+      // Obtém uma sessão validada no banco (admin_login) para autorizar
+      // as escritas administrativas via RPC. Se estiver offline, o login
+      // local ainda funciona, mas escritas na nuvem ficarão bloqueadas
+      // até a próxima tentativa de sincronização com conexão disponível.
+      try {
+        const sessionToken = await this.callRpc('admin_login', {
+          p_username: username,
+          p_password_hash: inputHash
+        });
+        if (sessionToken) {
+          this.setAdminSessionToken(sessionToken, rememberMe);
+        }
+      } catch (e) {
+        console.warn('Aviso: não foi possível obter sessão de administrador no Supabase (offline?):', e);
+      }
+
       return { success: true };
     }
     return { success: false, error: 'Usuário ou senha de Administrador incorretos.' };
@@ -205,6 +237,81 @@ class StorageService {
         sessionStorage.removeItem('placa_admin_auth_session');
       }
     } catch (e) {}
+    this.clearAdminSessionToken();
+  }
+
+  // Sessão de administrador validada no banco (RPC admin_login), usada
+  // para autorizar escritas administrativas via Supabase RPC
+  getAdminSessionToken() {
+    try {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem('placa_admin_session_token_v1') || sessionStorage.getItem('placa_admin_session_token_v1') || null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  setAdminSessionToken(token, persistent) {
+    try {
+      if (typeof window === 'undefined' || !token) return;
+      if (persistent) {
+        localStorage.setItem('placa_admin_session_token_v1', token);
+      } else {
+        sessionStorage.setItem('placa_admin_session_token_v1', token);
+      }
+    } catch (e) {}
+  }
+
+  clearAdminSessionToken() {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('placa_admin_session_token_v1');
+        sessionStorage.removeItem('placa_admin_session_token_v1');
+      }
+    } catch (e) {}
+  }
+
+  // Chamada genérica de função (RPC) do Supabase. Toda leitura/escrita
+  // hoje passa por funções SECURITY DEFINER no banco em vez de acesso
+  // direto à tabela `plaques` com a anon key.
+  async callRpc(fnName, params = {}, timeoutMs = 6000) {
+    if (!this.settings.supabaseUrl || !this.settings.supabaseKey) {
+      throw new Error('Supabase não configurado.');
+    }
+    const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/rpc/${fnName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': this.settings.supabaseKey,
+        'Authorization': `Bearer ${this.settings.supabaseKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    }, timeoutMs);
+
+    if (!res.ok) {
+      let message = `Erro ${res.status} ao chamar ${fnName}.`;
+      try {
+        const errBody = await res.json();
+        if (errBody && errBody.message) message = errBody.message;
+      } catch (e) {}
+      throw new Error(message);
+    }
+    return res.json();
+  }
+
+  // Sincroniza uma lista de placas com o Supabase via RPC administrativa
+  // (exige sessão de admin válida — substitui o antigo POST direto na tabela)
+  async syncPlaquesAsAdmin(plaquesArray) {
+    if (!Array.isArray(plaquesArray) || plaquesArray.length === 0) return;
+    const token = this.getAdminSessionToken();
+    if (!token) {
+      throw new Error('Sessão de administrador ausente ou expirada. Faça login novamente para sincronizar com a nuvem.');
+    }
+    const CHUNK_SIZE = 250;
+    for (let i = 0; i < plaquesArray.length; i += CHUNK_SIZE) {
+      const chunk = plaquesArray.slice(i, i + CHUNK_SIZE);
+      await this.callRpc('admin_upsert_plaques', { p_token: token, p_rows: chunk }, 8000);
+    }
   }
 
   async fetchWithTimeout(url, options = {}, timeoutMs = 4000) {
@@ -230,8 +337,12 @@ class StorageService {
     }
 
     this._syncPromise = (async () => {
-      // 1. Tenta carregar do Supabase Cloud se as credenciais estiverem ativas (com paginação para superar o limite de 1000 do PostgREST)
-      if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+      // 1. Só baixa a tabela inteira (com dados de clientes) se houver uma
+      //    sessão de administrador válida — visitantes públicos (scan,
+      //    ativação, portal do cliente) usam funções RPC específicas e
+      //    nunca precisam do dump completo da tabela.
+      const adminToken = this.getAdminSessionToken();
+      if (adminToken && this.settings.supabaseUrl && this.settings.supabaseKey) {
         try {
           const allCloudData = [];
           let offset = 0;
@@ -239,20 +350,12 @@ class StorageService {
           let hasMore = true;
 
           while (hasMore) {
-            const res = await this.fetchWithTimeout(
-              `${this.settings.supabaseUrl}/rest/v1/plaques?select=*&order=created_at.desc&limit=${pageSize}&offset=${offset}`,
-              {
-                headers: {
-                  'apikey': this.settings.supabaseKey,
-                  'Authorization': `Bearer ${this.settings.supabaseKey}`
-                }
-              },
-              8000
-            );
+            const batch = await this.callRpc('admin_list_plaques', {
+              p_token: adminToken,
+              p_limit: pageSize,
+              p_offset: offset
+            }, 8000);
 
-            if (!res.ok) break;
-
-            const batch = await res.json();
             if (!Array.isArray(batch) || batch.length === 0) {
               hasMore = false;
               break;
@@ -612,8 +715,10 @@ class StorageService {
     // Persistência assíncrona local (IndexedDB + LocalStorage)
     this.saveToDisk(this.plaques);
 
-    // Enfileira sincronização para nuvem
-    this.syncBatchToSupabase(newPlaques);
+    // Sincroniza com a nuvem via RPC administrativa
+    this.syncPlaquesAsAdmin(newPlaques).catch((err) => {
+      console.warn('Aviso: falha ao sincronizar novo lote com o Supabase:', err);
+    });
 
     try {
       fetch('/api/plaques/batch', {
@@ -655,16 +760,11 @@ class StorageService {
     this.invalidateCache();
     this.saveToDisk(this.plaques);
 
-    // Sincroniza exclusão no Supabase Cloud
-    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+    // Sincroniza exclusão no Supabase Cloud (via RPC administrativa)
+    const deleteBatchToken = this.getAdminSessionToken();
+    if (deleteBatchToken) {
       try {
-        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?batch_name=eq.${encodeURIComponent(batchName.trim())}`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
-          }
-        }, 5000);
+        await this.callRpc('admin_delete_by_batch', { p_token: deleteBatchToken, p_batch_name: batchName.trim() }, 5000);
       } catch (e) {
         console.warn('Aviso: Falha ao deletar lote no Supabase Cloud:', e);
       }
@@ -692,16 +792,11 @@ class StorageService {
     this.invalidateCache();
     this.saveToDisk(this.plaques);
 
-    // Sincroniza com Supabase Cloud
-    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+    // Sincroniza com Supabase Cloud (via RPC administrativa)
+    const deletePlaqueToken = this.getAdminSessionToken();
+    if (deletePlaqueToken) {
       try {
-        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(cleanId)}`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
-          }
-        }, 4000);
+        await this.callRpc('admin_delete_by_id', { p_token: deletePlaqueToken, p_id: cleanId }, 4000);
       } catch (e) {}
     }
 
@@ -713,7 +808,7 @@ class StorageService {
     return { success: true };
   }
 
-  // Busca direta de plaquinha no Supabase Cloud (garante acesso mesmo antes de sync completo)
+  // Busca direta de plaquinha no Supabase Cloud via RPC pública (não expõe o PIN)
   async fetchPlaqueFromCloud(id) {
     if (!id) return null;
     const cleanId = String(id).trim().toUpperCase();
@@ -722,31 +817,23 @@ class StorageService {
 
     if (this.settings.supabaseUrl && this.settings.supabaseKey) {
       try {
-        const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=eq.${encodeURIComponent(cleanId)}&select=*`, {
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
+        const rows = await this.callRpc('public_get_plaque', { p_id: cleanId }, 3500);
+        const cloudPlaque = Array.isArray(rows) ? rows[0] : rows;
+        if (cloudPlaque && cloudPlaque.id) {
+          this.plaquesMap.set(cloudPlaque.id.toUpperCase(), cloudPlaque);
+          if (!this.plaques.some(p => p.id.toUpperCase() === cloudPlaque.id.toUpperCase())) {
+            this.plaques.unshift(cloudPlaque);
           }
-        }, 3500);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const cloudPlaque = data[0];
-            this.plaquesMap.set(cloudPlaque.id.toUpperCase(), cloudPlaque);
-            if (!this.plaques.some(p => p.id.toUpperCase() === cloudPlaque.id.toUpperCase())) {
-              this.plaques.unshift(cloudPlaque);
-            }
-            this.invalidateCache();
-            this.saveToDisk(this.plaques);
-            return cloudPlaque;
-          }
+          this.invalidateCache();
+          this.saveToDisk(this.plaques);
+          return cloudPlaque;
         }
       } catch (e) {}
     }
     return null;
   }
 
-  // Busca direta de cliente no Supabase Cloud
+  // Busca direta de cliente no Supabase Cloud via RPC pública
   async fetchClientFromCloud(codeOrPhone) {
     if (!codeOrPhone) return null;
     const local = this.getClientByCode(codeOrPhone);
@@ -754,35 +841,27 @@ class StorageService {
 
     if (this.settings.supabaseUrl && this.settings.supabaseKey) {
       try {
-        const clean = String(codeOrPhone).trim();
-        const cleanDigits = clean.replace(/\D/g, '');
-        const reversed = cleanDigits ? cleanDigits.split('').reverse().join('') : '';
-
-        const res = await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?or=(client_code.eq.${encodeURIComponent(clean)},client_code.eq.${encodeURIComponent(cleanDigits)},client_code.eq.${encodeURIComponent(reversed)},client_phone.eq.${encodeURIComponent(clean)})&select=*`, {
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
-          }
-        }, 3500);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            data.forEach(p => {
-              this.plaquesMap.set(p.id.toUpperCase(), p);
-              if (!this.plaques.some(item => item.id.toUpperCase() === p.id.toUpperCase())) {
-                this.plaques.unshift(p);
-              }
-            });
-            this.invalidateCache();
-            this.saveToDisk(this.plaques);
-            return this.getClientByCode(codeOrPhone);
-          }
+        const rows = await this.callRpc('public_get_client_plaques', { p_query: String(codeOrPhone).trim() }, 3500);
+        if (Array.isArray(rows) && rows.length > 0) {
+          rows.forEach(p => {
+            this.plaquesMap.set(p.id.toUpperCase(), p);
+            if (!this.plaques.some(item => item.id.toUpperCase() === p.id.toUpperCase())) {
+              this.plaques.unshift(p);
+            }
+          });
+          this.invalidateCache();
+          this.saveToDisk(this.plaques);
+          return this.getClientByCode(codeOrPhone);
         }
       } catch (e) {}
     }
     return null;
   }
 
+  // Ativação/edição pública de placa. O PIN agora é validado DENTRO do
+  // banco (função public_activate_plaque), não mais só no navegador —
+  // chamar a API do Supabase direto com a anon key não basta mais para
+  // sequestrar uma placa já ativa.
   async activatePlaque(id, { name, targetUrl, pin, clientName, clientPhone, clientCode }) {
     let plaque = this.getPlaqueById(id);
     if (!plaque) {
@@ -795,41 +874,51 @@ class StorageService {
       return { success: false, error: 'Link de avaliação inválido. Insira um link válido (ex: https://g.page/r/... ou link da sua empresa).' };
     }
 
-    // Validação estrita de PIN de segurança caso a placa já esteja ativa
-    if (plaque.status === 'active' && plaque.pin) {
-      if (!pin || String(pin).trim() !== String(plaque.pin).trim()) {
-        return { success: false, error: 'PIN de segurança obrigatório ou incorreto para alterar esta plaquinha.' };
-      }
-    }
-
     const calculatedCode = clientCode || (clientPhone ? getReversedPhoneCode(clientPhone) : (plaque.client_code || ''));
 
-    plaque.name = name ? String(name).trim() : plaque.name || 'Empresa Cadastrada';
-    plaque.target_url = cleanUrl;
-    plaque.status = 'active';
-    plaque.activated_at = new Date().toISOString();
+    let serverResult;
+    try {
+      const rows = await this.callRpc('public_activate_plaque', {
+        p_id: id,
+        p_pin_attempt: pin || null,
+        p_name: name || null,
+        p_target_url: cleanUrl,
+        p_client_name: clientName || null,
+        p_client_phone: clientPhone || null,
+        p_client_code: calculatedCode || null,
+        p_new_pin: pin || null
+      }, 6000);
+      serverResult = Array.isArray(rows) ? rows[0] : rows;
+    } catch (err) {
+      const msg = String(err && err.message || '');
+      if (msg === 'INVALID_PIN') {
+        return { success: false, error: 'PIN de segurança obrigatório ou incorreto para alterar esta plaquinha.' };
+      }
+      if (msg === 'PLAQUE_NOT_FOUND') {
+        return { success: false, error: 'Código de plaquinha não encontrado.' };
+      }
+      if (msg === 'INVALID_URL') {
+        return { success: false, error: 'Link de avaliação inválido. Insira um link válido.' };
+      }
+      return { success: false, error: 'Não foi possível ativar agora. Verifique sua conexão e tente novamente.' };
+    }
+
+    if (!serverResult) {
+      return { success: false, error: 'Não foi possível confirmar a ativação. Tente novamente.' };
+    }
+
+    Object.assign(plaque, serverResult);
     if (pin) plaque.pin = String(pin).trim();
-    if (clientName) plaque.client_name = String(clientName).trim();
-    if (clientPhone) plaque.client_phone = String(clientPhone).trim();
-    if (calculatedCode) plaque.client_code = String(calculatedCode).trim();
 
     this.invalidateCache();
     idb.putPlaque(plaque).catch(() => {});
     this.saveToDisk(this.plaques);
 
-    this.queueForSync(plaque);
-
-    try {
-      fetch('/api/plaques', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(plaque)
-      }).catch(() => {});
-    } catch (e) {}
-
     return { success: true, plaque };
   }
 
+  // Edição feita de dentro do painel administrativo (sem PIN — protegida
+  // pela sessão de admin validada no banco via admin_upsert_plaques)
   async updatePlaque(id, updates) {
     let plaque = this.getPlaqueById(id);
     if (!plaque) {
@@ -850,21 +939,15 @@ class StorageService {
     idb.putPlaque(plaque).catch(() => {});
     this.saveToDisk(this.plaques);
 
-    this.queueForSync(plaque);
-
-    try {
-      fetch('/api/plaques', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(plaque)
-      }).catch(() => {});
-    } catch (e) {}
+    this.syncPlaquesAsAdmin([plaque]).catch((err) => {
+      console.warn('Aviso: falha ao sincronizar edição com o Supabase:', err);
+    });
 
     return plaque;
   }
 
   async resetPlaque(id) {
-    const res = await this.updatePlaque(id, {
+    return this.updatePlaque(id, {
       name: '',
       status: 'virgin',
       target_url: '',
@@ -874,8 +957,6 @@ class StorageService {
       activated_at: null,
       pin: '1234'
     });
-    await this.flushSyncQueue();
-    return res;
   }
 
   async recordScan(id) {
@@ -895,7 +976,7 @@ class StorageService {
         }, 500);
       }
 
-      this.queueForSync(plaque);
+      this.callRpc('public_record_scan', { p_id: id }).catch(() => {});
 
       try {
         fetch('/api/plaques', {
@@ -1136,53 +1217,6 @@ class StorageService {
     };
   }
 
-  // Fila inteligente de sincronização em segundo plano (Write-behind batched sync)
-  queueForSync(plaque) {
-    if (!this.settings.supabaseUrl || !this.settings.supabaseKey) return;
-    this._syncQueue.set(plaque.id, plaque);
-
-    if (!this._syncQueueTimer) {
-      this._syncQueueTimer = setTimeout(() => {
-        this.flushSyncQueue();
-      }, 1200);
-    }
-  }
-
-  async flushSyncQueue() {
-    this._syncQueueTimer = null;
-    if (!this._syncQueue || this._syncQueue.size === 0) return;
-
-    const items = Array.from(this._syncQueue.values());
-    this._syncQueue.clear();
-    await this.syncBatchToSupabase(items);
-  }
-
-  // Chunking inteligente para sincronização em massa sem estourar limites HTTP
-  async syncBatchToSupabase(plaques) {
-    if (!this.settings.supabaseUrl || !this.settings.supabaseKey || !Array.isArray(plaques) || plaques.length === 0) return;
-    
-    const CHUNK_SIZE = 250;
-    const total = plaques.length;
-
-    for (let i = 0; i < total; i += CHUNK_SIZE) {
-      const chunk = plaques.slice(i, i + CHUNK_SIZE);
-      try {
-        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques`, {
-          method: 'POST',
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify(chunk)
-        }, 5000);
-      } catch (e) {
-        // Silencioso em caso de timeout / rede offline
-      }
-    }
-  }
-
   exportBackupJSON() {
     // Sanitização de segurança: remove credenciais do Dono do backup
     const safeSettings = {
@@ -1205,7 +1239,9 @@ class StorageService {
       if (data && Array.isArray(data.plaques)) {
         this.setPlaquesInternal(data.plaques);
         this.saveToDisk(this.plaques);
-        this.syncBatchToSupabase(this.plaques);
+        this.syncPlaquesAsAdmin(this.plaques).catch((err) => {
+          console.warn('Aviso: falha ao sincronizar backup restaurado com o Supabase:', err);
+        });
         return { success: true, count: this.plaques.length };
       }
     } catch (e) {
@@ -1247,16 +1283,11 @@ class StorageService {
       }
     } catch (e) {}
 
-    // 4. Limpa no Supabase Cloud (deleta todas as linhas da tabela plaques)
-    if (this.settings.supabaseUrl && this.settings.supabaseKey) {
+    // 4. Limpa no Supabase Cloud (via RPC administrativa)
+    const resetToken = this.getAdminSessionToken();
+    if (resetToken) {
       try {
-        await this.fetchWithTimeout(`${this.settings.supabaseUrl}/rest/v1/plaques?id=neq.ZZZZZZZZZZ_EMPTY`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': this.settings.supabaseKey,
-            'Authorization': `Bearer ${this.settings.supabaseKey}`
-          }
-        }, 8000);
+        await this.callRpc('admin_reset_all', { p_token: resetToken }, 8000);
       } catch (e) {
         console.warn('Aviso: Falha ao zerar no Supabase Cloud:', e);
       }
