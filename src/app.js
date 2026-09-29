@@ -1288,10 +1288,16 @@ function setupEventListeners() {
         if (confirmation === 'ZERAR') {
           btnPurgeDatabase.disabled = true;
           btnPurgeDatabase.textContent = 'Limpando todo o sistema...';
-          await storage.resetDatabaseToZero();
-          alert('✅ Banco de dados zerado com sucesso! O sistema está 100% limpo para começar do zero.');
-          window.location.hash = '#/lotes';
-          renderApp();
+          const res = await storage.resetDatabaseToZero();
+          if (res.success) {
+            alert('✅ Banco de dados zerado com sucesso! O sistema está 100% limpo para começar do zero.');
+            window.location.hash = '#/lotes';
+            renderApp();
+          } else {
+            alert('❌ Não foi possível zerar o banco: ' + (res.error || 'erro desconhecido') + '\n\nNada foi apagado.');
+          }
+          btnPurgeDatabase.disabled = false;
+          btnPurgeDatabase.textContent = 'Limpar e Zerar Todas as Placas';
         } else if (confirmation !== null) {
           alert('Ação cancelada. A palavra de segurança não confere.');
         }

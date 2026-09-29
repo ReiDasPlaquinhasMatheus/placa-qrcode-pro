@@ -147,16 +147,17 @@ class StorageService {
     // as escritas administrativas via RPC parariam (sessão nunca mais
     // seria emitida, pois admin_login compara com o hash antigo).
     const sessionToken = this.getAdminSessionToken();
-    if (sessionToken) {
-      try {
-        await this.callRpc('admin_change_credentials', {
-          p_token: sessionToken,
-          p_new_username: newUsername.trim(),
-          p_new_password_hash: newHash
-        });
-      } catch (e) {
-        console.warn('Aviso: credencial local trocada, mas falha ao sincronizar com o Supabase:', e);
-      }
+    if (!sessionToken) {
+      throw new Error('Credencial trocada aqui, mas sem sessão de administrador válida para confirmar no servidor — faça login de novo e troque outra vez, ou as próximas escritas administrativas vão falhar.');
+    }
+    try {
+      await this.callRpc('admin_change_credentials', {
+        p_token: sessionToken,
+        p_new_username: newUsername.trim(),
+        p_new_password_hash: newHash
+      });
+    } catch (e) {
+      throw new Error('Credencial trocada aqui, mas NÃO foi confirmada no servidor: ' + e.message + ' Faça login de novo e troque outra vez.');
     }
     return true;
   }
@@ -852,10 +853,22 @@ class StorageService {
     // Persistência assíncrona local (IndexedDB + LocalStorage)
     this.saveToDisk(this.plaques);
 
-    // Sincroniza com a nuvem via RPC administrativa
-    this.syncPlaquesAsAdmin(newPlaques).catch((err) => {
-      console.warn('Aviso: falha ao sincronizar novo lote com o Supabase:', err);
-    });
+    // Sincroniza com a nuvem via RPC administrativa. Precisa esperar e
+    // propagar falha: se isso não chegar no banco, as placas físicas
+    // impressas a partir do ZIP baixado a seguir simplesmente não
+    // existiriam de verdade — o cliente escanearia e cairia em "não
+    // encontrado" para sempre.
+    try {
+      await this.syncPlaquesAsAdmin(newPlaques);
+    } catch (err) {
+      // Desfaz a inserção local, já que o lote não existe de verdade na nuvem
+      const newIds = new Set(newPlaques.map(p => p.id.toUpperCase()));
+      this.plaques = this.plaques.filter(p => !newIds.has(p.id.toUpperCase()));
+      newIds.forEach(id => this.plaquesMap.delete(id));
+      this.invalidateCache();
+      this.saveToDisk(this.plaques);
+      throw new Error('Não foi possível salvar o novo lote no servidor: ' + err.message + ' Nada foi criado — tente novamente.');
+    }
 
     try {
       fetch('/api/plaques/batch', {
@@ -869,53 +882,44 @@ class StorageService {
   }
 
   // Exclusão completa de lote (Sincronizado com IndexedDB, LocalStorage, Supabase Cloud e Servidor)
+  // Apaga PRIMEIRO no Supabase e só remove localmente se der certo — na
+  // ordem antiga, a exclusão local acontecia sempre, e a exclusão no
+  // banco era fire-and-forget (só console.warn se falhasse). Isso podia
+  // mostrar um lote como "excluído" no painel enquanto continuava
+  // 100% ativo no banco de verdade.
   async deleteBatch(batchName) {
     if (!batchName) return { success: false, error: 'Nome do lote inválido.' };
     const cleanName = String(batchName).trim().toLowerCase();
 
-    const initialCount = this.plaques.length;
-    const remainingPlaques = [];
-    const deletedIds = [];
-
-    for (let i = 0; i < initialCount; i++) {
-      const p = this.plaques[i];
-      const pBatch = (p.batch_name || 'Lote Geral').trim().toLowerCase();
-      if (pBatch === cleanName) {
-        deletedIds.push(p.id);
-        this.plaquesMap.delete(p.id.toUpperCase());
-      } else {
-        remainingPlaques.push(p);
-      }
-    }
-
-    const deletedCount = deletedIds.length;
-    if (deletedCount === 0) {
+    const matching = this.plaques.filter(p => (p.batch_name || 'Lote Geral').trim().toLowerCase() === cleanName);
+    if (matching.length === 0) {
       return { success: false, error: 'Nenhuma plaquinha encontrada neste lote.' };
     }
 
-    this.plaques = remainingPlaques;
+    const token = this.getAdminSessionToken();
+    if (!token) {
+      return { success: false, error: 'Sessão de administrador ausente ou expirada. Faça login novamente e tente de novo.' };
+    }
+    try {
+      await this.callRpc('admin_delete_by_batch', { p_token: token, p_batch_name: batchName.trim() }, 8000);
+    } catch (e) {
+      return { success: false, error: 'Não foi possível excluir no servidor: ' + e.message };
+    }
+
+    const matchingIds = new Set(matching.map(p => p.id.toUpperCase()));
+    this.plaques = this.plaques.filter(p => !matchingIds.has(p.id.toUpperCase()));
+    matchingIds.forEach(id => this.plaquesMap.delete(id));
     this.invalidateCache();
     this.saveToDisk(this.plaques);
 
-    // Sincroniza exclusão no Supabase Cloud (via RPC administrativa)
-    const deleteBatchToken = this.getAdminSessionToken();
-    if (deleteBatchToken) {
-      try {
-        await this.callRpc('admin_delete_by_batch', { p_token: deleteBatchToken, p_batch_name: batchName.trim() }, 5000);
-      } catch (e) {
-        console.warn('Aviso: Falha ao deletar lote no Supabase Cloud:', e);
-      }
-    }
-
-    // Sincroniza com servidor local
     try {
       fetch(`/api/batches/${encodeURIComponent(batchName.trim())}`, { method: 'DELETE' }).catch(() => {});
     } catch (e) {}
 
-    return { success: true, count: deletedCount };
+    return { success: true, count: matching.length };
   }
 
-  // Exclusão de uma única placa
+  // Exclusão de uma única placa (mesma ordem: banco primeiro, local depois)
   async deletePlaque(plaqueId) {
     if (!plaqueId) return { success: false, error: 'ID da placa inválido.' };
     const cleanId = String(plaqueId).trim().toUpperCase();
@@ -924,20 +928,21 @@ class StorageService {
       return { success: false, error: 'Plaquinha não encontrada.' };
     }
 
+    const token = this.getAdminSessionToken();
+    if (!token) {
+      return { success: false, error: 'Sessão de administrador ausente ou expirada. Faça login novamente e tente de novo.' };
+    }
+    try {
+      await this.callRpc('admin_delete_by_id', { p_token: token, p_id: cleanId }, 4000);
+    } catch (e) {
+      return { success: false, error: 'Não foi possível excluir no servidor: ' + e.message };
+    }
+
     this.plaquesMap.delete(cleanId);
     this.plaques = this.plaques.filter(p => (p.id || '').toUpperCase() !== cleanId);
     this.invalidateCache();
     this.saveToDisk(this.plaques);
 
-    // Sincroniza com Supabase Cloud (via RPC administrativa)
-    const deletePlaqueToken = this.getAdminSessionToken();
-    if (deletePlaqueToken) {
-      try {
-        await this.callRpc('admin_delete_by_id', { p_token: deletePlaqueToken, p_id: cleanId }, 4000);
-      } catch (e) {}
-    }
-
-    // Sincroniza com servidor local
     try {
       fetch(`/api/plaques/${encodeURIComponent(cleanId)}`, { method: 'DELETE' }).catch(() => {});
     } catch (e) {}
@@ -1080,9 +1085,18 @@ class StorageService {
     idb.putPlaque(plaque).catch(() => {});
     this.saveToDisk(this.plaques);
 
-    this.syncPlaquesAsAdmin([plaque]).catch((err) => {
-      console.warn('Aviso: falha ao sincronizar edição com o Supabase:', err);
-    });
+    // IMPORTANTE: precisa esperar e propagar falha daqui. Antes essa
+    // chamada era fire-and-forget (só console.warn) — a tela mostrava
+    // a alteração como salva mesmo quando a sessão de admin estava
+    // ausente/expirada e a escrita real no Supabase nunca acontecia.
+    // Resultado real: um "reset" parecia funcionar no painel, mas o
+    // cliente continuava sendo redirecionado pro link antigo, porque
+    // o banco nunca foi atualizado de verdade.
+    try {
+      await this.syncPlaquesAsAdmin([plaque]);
+    } catch (err) {
+      throw new Error('Alterado aqui, mas NÃO foi salvo no servidor: ' + err.message + ' Tente novamente.');
+    }
 
     return plaque;
   }
@@ -1419,30 +1433,50 @@ class StorageService {
   }
 
   async importBackupJSON(jsonString) {
+    let data;
     try {
-      const data = JSON.parse(jsonString);
-      if (data && Array.isArray(data.plaques)) {
-        this.setPlaquesInternal(data.plaques);
-        this.saveToDisk(this.plaques);
-        this.syncPlaquesAsAdmin(this.plaques).catch((err) => {
-          console.warn('Aviso: falha ao sincronizar backup restaurado com o Supabase:', err);
-        });
-        return { success: true, count: this.plaques.length };
-      }
+      data = JSON.parse(jsonString);
     } catch (e) {
       return { success: false, error: 'Arquivo JSON corrompido ou inválido.' };
     }
-    return { success: false, error: 'Formato de backup incompatível.' };
+    if (!data || !Array.isArray(data.plaques)) {
+      return { success: false, error: 'Formato de backup incompatível.' };
+    }
+
+    this.setPlaquesInternal(data.plaques);
+    this.saveToDisk(this.plaques);
+    try {
+      await this.syncPlaquesAsAdmin(this.plaques);
+    } catch (err) {
+      return { success: false, error: 'Restaurado localmente, mas NÃO foi salvo no servidor: ' + err.message + ' Tente novamente.' };
+    }
+    return { success: true, count: this.plaques.length };
   }
 
   // Limpeza total e reinício do zero absoluto (Memória, IndexedDB, LocalStorage, Supabase Cloud e Mock Server)
   async resetDatabaseToZero() {
-    // 1. Limpa memória
+    // 1. Zera no Supabase Cloud PRIMEIRO — é a operação mais destrutiva
+    // do sistema, então só limpamos o que o admin vê localmente depois
+    // de confirmar que o banco de verdade foi zerado. Na ordem antiga
+    // (local primeiro, nuvem por último e tolerante a falha), um erro
+    // aqui deixava o painel "vazio" enquanto o banco real continuava
+    // com tudo.
+    const resetToken = this.getAdminSessionToken();
+    if (!resetToken) {
+      return { success: false, error: 'Sessão de administrador ausente ou expirada. Faça login novamente e tente de novo.' };
+    }
+    try {
+      await this.callRpc('admin_reset_all', { p_token: resetToken }, 15000);
+    } catch (e) {
+      return { success: false, error: 'Não foi possível zerar no servidor: ' + e.message };
+    }
+
+    // 2. Limpa memória
     this.plaques = [];
     this.plaquesMap.clear();
     this.invalidateCache();
 
-    // 2. Limpa IndexedDB
+    // 3. Limpa IndexedDB
     try {
       await idb.clearAllPlaques();
     } catch (e) {}
@@ -1454,7 +1488,7 @@ class StorageService {
       }
     } catch (e) {}
 
-    // 3. Limpa todas as versões de LocalStorage
+    // 4. Limpa todas as versões de LocalStorage
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(STORAGE_KEY);
@@ -1467,16 +1501,6 @@ class StorageService {
         localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
       }
     } catch (e) {}
-
-    // 4. Limpa no Supabase Cloud (via RPC administrativa)
-    const resetToken = this.getAdminSessionToken();
-    if (resetToken) {
-      try {
-        await this.callRpc('admin_reset_all', { p_token: resetToken }, 8000);
-      } catch (e) {
-        console.warn('Aviso: Falha ao zerar no Supabase Cloud:', e);
-      }
-    }
 
     // 5. Limpa no mock server local se estiver rodando
     try {

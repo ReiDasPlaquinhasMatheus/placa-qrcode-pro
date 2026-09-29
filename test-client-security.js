@@ -82,6 +82,15 @@ async function runSecurityAudit() {
         activated_at: new Date().toISOString()
       }];
     }
+    // Simula uma sessão de admin válida (sem bater na rede) para os
+    // testes de login/troca de credenciais poderem exercitar o mesmo
+    // caminho que agora exige sessão confirmada no servidor.
+    if (fnName === 'admin_login') {
+      return 'mock-session-token-' + Date.now();
+    }
+    if (fnName === 'admin_change_credentials') {
+      return true;
+    }
     throw new Error('RPC_NOT_MOCKED_IN_TEST: ' + fnName);
   };
 
@@ -164,7 +173,12 @@ async function runSecurityAudit() {
   storage.logoutAdmin();
   assert(storage.isAdminAuthenticated() === false, 'Após logout, estado de admin deve ser false');
 
-  // Define uma credencial de teste isolada (não usa senha real de produção)
+  // Define uma credencial de teste isolada (não usa senha real de produção).
+  // Na aplicação real, setAdminCredentials só é alcançável já logado (tela
+  // de Configurações) — então simulamos essa sessão aqui. (setAdminSessionToken
+  // usa localStorage, que não existe neste ambiente Node de teste — por
+  // isso o mock direto do getter, não o setter real.)
+  storage.getAdminSessionToken = () => 'mock-session-token-setup';
   const testUser = 'teste_qa';
   const testPass = 'SenhaDeTesteIsolada_' + Date.now();
   await storage.setAdminCredentials(testUser, testPass);
