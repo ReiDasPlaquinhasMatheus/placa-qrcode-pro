@@ -461,7 +461,7 @@ export function renderClientPortalView({
         </div>
 
         <div class="table-container" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
-          <table class="table">
+          <table class="table client-plaque-table">
             <thead>
               <tr>
                 <th style="width: 140px;">Código QR</th>
@@ -485,7 +485,7 @@ export function renderClientPortalView({
                 return `
                   <tr style="height: 50px; white-space: nowrap; vertical-align: middle;">
                     <!-- Código -->
-                    <td class="font-mono font-bold" style="white-space: nowrap;">
+                    <td class="font-mono font-bold" data-label="Código QR" style="white-space: nowrap;">
                       <span class="text-blue btn-view-qr" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" data-id="${escapeHtml(plaque.id)}">
                         ${getIcon('qrcode', '', 15)}
                         <span>${escapeHtml(plaque.id)}</span>
@@ -493,15 +493,15 @@ export function renderClientPortalView({
                     </td>
 
                     <!-- Status -->
-                    <td style="white-space: nowrap;">
-                      ${isVirgin 
+                    <td data-label="Status" style="white-space: nowrap;">
+                      ${isVirgin
                         ? `<span class="badge badge-virgin">Virgem</span>`
                         : `<span class="badge badge-active">Ativo</span>`
                       }
                     </td>
 
                     <!-- Link e Empresa (1 linha só) -->
-                    <td style="white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;">
+                    <td data-label="Empresa / Link de Avaliação" style="white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;">
                       ${isVirgin ? `
                         <span class="text-muted text-xs">Plaquinha pronta para vincular</span>
                         <a href="#/activate/${escapeHtml(plaque.id)}" class="text-xs text-blue ml-2 font-medium" style="display: inline-flex; align-items: center; gap: 3px;">
@@ -519,15 +519,15 @@ export function renderClientPortalView({
                     </td>
 
                     <!-- Scans -->
-                    <td class="font-mono font-bold" style="white-space: nowrap; color: ${(plaque.scans_count || 0) > 0 ? 'var(--color-blue)' : 'inherit'};">
+                    <td class="font-mono font-bold" data-label="Leituras" style="white-space: nowrap; color: ${(plaque.scans_count || 0) > 0 ? 'var(--color-blue)' : 'inherit'};">
                       ${plaque.scans_count || 0}
                     </td>
 
                     <!-- Último Scan -->
-                    <td class="text-xs text-muted" style="white-space: nowrap;">${formatRelativeTime(plaque.last_scan_at)}</td>
+                    <td class="text-xs text-muted" data-label="Última Leitura" style="white-space: nowrap;">${formatRelativeTime(plaque.last_scan_at)}</td>
 
                     <!-- Ações do Cliente -->
-                    <td style="text-align: right; white-space: nowrap;">
+                    <td class="client-td-actions" data-label="Ações" style="text-align: right; white-space: nowrap;">
                       <div style="display: inline-flex; gap: 4px;">
                         <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Visualizar QR Code">
                           ${getIcon('qrcode', '', 14)} QR
