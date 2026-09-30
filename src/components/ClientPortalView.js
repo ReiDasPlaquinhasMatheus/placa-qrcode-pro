@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { formatPhone, formatRelativeTime, escapeHtml } from '../utils/helpers.js';
+import { formatPhone, formatRelativeTime, escapeHtml, normalizeForSearch } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 import { renderPagination } from './Pagination.js';
 
@@ -334,10 +334,10 @@ export function renderClientPortalView({
   }
 
   if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter(p => 
+    const q = normalizeForSearch(searchQuery);
+    filtered = filtered.filter(p =>
       p.id.toLowerCase().includes(q) ||
-      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.name && normalizeForSearch(p.name).includes(q)) ||
       (p.target_url && p.target_url.toLowerCase().includes(q))
     );
   }

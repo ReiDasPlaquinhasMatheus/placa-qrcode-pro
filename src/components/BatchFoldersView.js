@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { escapeHtml } from '../utils/helpers.js';
+import { escapeHtml, normalizeForSearch } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 
 export function renderBatchFoldersView({
@@ -12,9 +12,9 @@ export function renderBatchFoldersView({
   // 1. Filtragem por busca
   let filtered = allBatches;
   if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter(b => 
-      b.name.toLowerCase().includes(q) ||
+    const q = normalizeForSearch(searchQuery);
+    filtered = filtered.filter(b =>
+      normalizeForSearch(b.name).includes(q) ||
       (b.firstId && b.firstId.toLowerCase().includes(q)) ||
       (b.lastId && b.lastId.toLowerCase().includes(q))
     );

@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { formatPhone, getWhatsAppUrl, escapeHtml } from '../utils/helpers.js';
+import { formatPhone, getWhatsAppUrl, escapeHtml, normalizeForSearch } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 import { renderPagination } from './Pagination.js';
 
@@ -18,12 +18,12 @@ export function renderClientsView({
   // 1. Filtragem por Busca
   let filtered = allClients;
   if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter(c => 
-      c.name.toLowerCase().includes(q) ||
+    const q = normalizeForSearch(searchQuery);
+    filtered = filtered.filter(c =>
+      normalizeForSearch(c.name).includes(q) ||
       (c.phone && c.phone.includes(q)) ||
       (c.client_code && c.client_code.includes(q)) ||
-      c.plaques.some(p => p.id.toLowerCase().includes(q) || (p.name && p.name.toLowerCase().includes(q)))
+      c.plaques.some(p => p.id.toLowerCase().includes(q) || (p.name && normalizeForSearch(p.name).includes(q)))
     );
   }
 

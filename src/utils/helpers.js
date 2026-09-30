@@ -2,6 +2,21 @@
 import { storage } from '../services/storage.js';
 
 /**
+ * Remove acentos para comparação de busca (ex: "Tássio" e "tassio" devem
+ * ser considerados iguais). Sem isso, .includes() falha porque "á" e "a"
+ * são caracteres diferentes de verdade em JS — qualquer nome/empresa com
+ * acento (comuníssimo em português: Ótica, Conexão, Pães...) ficava
+ * impossível de achar na busca se a pessoa digitasse sem o acento.
+ */
+export function normalizeForSearch(str) {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/**
  * Sanitiza texto para prevenir ataques de Cross-Site Scripting (XSS)
  */
 export function escapeHtml(str) {

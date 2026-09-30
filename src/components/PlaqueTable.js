@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { formatRelativeTime, escapeHtml } from '../utils/helpers.js';
+import { formatRelativeTime, escapeHtml, normalizeForSearch } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 import { renderPagination } from './Pagination.js';
 
@@ -25,7 +25,7 @@ export function renderPlaqueTable({
   let todayCount = 0;
   const filtered = [];
 
-  const q = searchQuery ? searchQuery.toLowerCase().trim() : '';
+  const q = searchQuery ? normalizeForSearch(searchQuery) : '';
   const filterByLote = (!isSpecificBatch && batchName && batchName !== 'all') ? batchName : null;
 
   // Filtragem e Métricas em Passada Única Ultra Rápida (O(N))
@@ -52,13 +52,13 @@ export function renderPlaqueTable({
 
     // 4. Busca em Tempo Real
     if (q) {
-      const match = (p.id && p.id.toLowerCase().includes(q)) || 
-        (p.name && p.name.toLowerCase().includes(q)) ||
-        (p.client_name && p.client_name.toLowerCase().includes(q)) ||
+      const match = (p.id && p.id.toLowerCase().includes(q)) ||
+        (p.name && normalizeForSearch(p.name).includes(q)) ||
+        (p.client_name && normalizeForSearch(p.client_name).includes(q)) ||
         (p.client_phone && p.client_phone.toLowerCase().includes(q)) ||
         (p.client_code && p.client_code.toLowerCase().includes(q)) ||
         (p.target_url && p.target_url.toLowerCase().includes(q)) ||
-        (p.batch_name && p.batch_name.toLowerCase().includes(q));
+        (p.batch_name && normalizeForSearch(p.batch_name).includes(q));
       if (!match) continue;
     }
 
