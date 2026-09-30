@@ -153,30 +153,39 @@ async function renderApp() {
 
     // 1. Redirecionamento SPA (Se aberto via link curto /r/:id ou #/r/:id)
     if (route.name === 'redirect') {
-      let plaque = storage.getPlaqueById(route.params.id);
+      const redirectId = route.params.id;
+      let plaque = storage.getPlaqueById(redirectId);
       if (!plaque) {
-        plaque = await storage.fetchPlaqueFromCloud(route.params.id);
+        plaque = await storage.fetchPlaqueFromCloud(redirectId);
       }
 
-      if (plaque && plaque.status === 'active' && plaque.target_url && isValidHttpUrl(plaque.target_url)) {
-        if (lastScanRecordedId !== plaque.id) {
-          storage.recordScan(plaque.id);
-          lastScanRecordedId = plaque.id;
+      // Sempre confirma com o servidor antes de decidir pra onde
+      // redirecionar. Cair só no cache local faria esse navegador
+      // continuar mandando pro link antigo pra sempre depois de a placa
+      // ser editada/resetada em outro lugar. Se a rede falhar, cai pro
+      // que já tem em cache como último recurso (offline).
+      const fresh = await storage.fetchFreshPlaqueForRedirect(redirectId);
+      const effective = fresh || plaque;
+
+      if (effective && effective.status === 'active' && effective.target_url && isValidHttpUrl(effective.target_url)) {
+        if (lastScanRecordedId !== redirectId) {
+          storage.recordScan(redirectId);
+          lastScanRecordedId = redirectId;
         }
         appEl.innerHTML = `
           <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: var(--font-sans);">
             <div style="text-align: center; padding: 2rem;">
               <p style="font-size: 0.875rem; color: #64748B;">Redirecionando para as avaliações...</p>
-              <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${escapeHtml(plaque.name || plaque.id)}</p>
+              <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${escapeHtml(effective.name || redirectId)}</p>
             </div>
           </div>
         `;
         setTimeout(() => {
-          window.location.href = plaque.target_url;
+          window.location.href = effective.target_url;
         }, 200);
         return;
       } else {
-        window.location.hash = `#/activate/${encodeURIComponent(route.params.id)}`;
+        window.location.hash = `#/activate/${encodeURIComponent(redirectId)}`;
         return;
       }
     }

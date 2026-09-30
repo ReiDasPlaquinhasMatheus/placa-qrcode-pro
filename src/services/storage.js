@@ -975,6 +975,24 @@ class StorageService {
     return null;
   }
 
+  // Busca o estado ATUAL da placa direto do servidor, ignorando o cache
+  // local (diferente de fetchPlaqueFromCloud, que usa o cache se já
+  // tiver algo salvo). Usado só na decisão de redirecionamento: sem
+  // isso, um navegador que já tinha a placa em cache (ex: o admin, que
+  // sincroniza o catálogo inteiro ao logar) continuava redirecionando
+  // pro link antigo mesmo depois da placa ser editada/resetada em outro
+  // lugar, porque nunca voltava a checar o servidor.
+  async fetchFreshPlaqueForRedirect(id) {
+    if (!id || !this.settings.supabaseUrl || !this.settings.supabaseKey) return null;
+    try {
+      const rows = await this.callRpc('public_get_plaque', { p_id: id }, 4000);
+      const fresh = Array.isArray(rows) ? rows[0] : rows;
+      return fresh && fresh.id ? fresh : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Busca direta de cliente no Supabase Cloud via RPC pública
   async fetchClientFromCloud(codeOrPhone) {
     if (!codeOrPhone) return null;
