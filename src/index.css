@@ -434,6 +434,7 @@ a {
   }
 
   .client-plaque-table tr {
+    height: auto !important;
     padding: 0.875rem 1rem;
     border-bottom: 8px solid #F8FAFC;
   }
@@ -446,6 +447,9 @@ a {
     padding: 0.375rem 0;
     border-bottom: none;
     text-align: left;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
   }
 
   .client-plaque-table td[data-label]::before {
