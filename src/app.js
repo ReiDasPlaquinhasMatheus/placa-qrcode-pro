@@ -11,7 +11,7 @@ import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderDashboardView } from './components/DashboardView.js';
 import { renderSettingsView } from './components/SettingsView.js';
-import { renderEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal } from './components/Modals.js';
+import { renderEditModal, renderClientEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
@@ -724,7 +724,10 @@ function setupEventListeners() {
     btn.addEventListener('click', (e) => {
       const id = e.currentTarget.dataset.id;
       state.activePlaqueId = id;
-      modalContainer.innerHTML = renderEditModal(id);
+      // Portal do cliente usa um modal separado, sem PIN exposto nem
+      // campo de Status — ver renderClientEditModal em Modals.js.
+      const isClient = state.currentRoute === 'cliente';
+      modalContainer.innerHTML = isClient ? renderClientEditModal(id) : renderEditModal(id);
       setupModalListeners();
     });
   });
@@ -1469,6 +1472,42 @@ function setupModalListeners() {
         renderApp();
       } catch (err) {
         alert('Erro ao salvar: ' + err.message);
+      }
+    });
+  }
+
+  // Edição feita pelo CLIENTE no Portal — exige PIN, validado no banco
+  // via a mesma função da reativação (não depende de sessão de admin)
+  const formClientEditPlaque = document.getElementById('form-client-edit-plaque');
+  if (formClientEditPlaque) {
+    formClientEditPlaque.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('client-edit-plaque-modal');
+      const plaqueId = modal?.dataset.id;
+      const plaque = storage.getPlaqueById(plaqueId);
+      const name = document.getElementById('cep-name')?.value || '';
+      const targetUrl = document.getElementById('cep-target-url')?.value || '';
+      const pin = document.getElementById('cep-pin')?.value || '';
+      const errorEl = document.getElementById('cep-error');
+      const submitBtn = document.getElementById('btn-submit-client-edit');
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
+
+      const res = await storage.activatePlaque(plaqueId, {
+        name,
+        targetUrl,
+        pin,
+        clientName: plaque?.client_name || '',
+        clientPhone: plaque?.client_phone || '',
+        clientCode: plaque?.client_code || ''
+      });
+
+      if (res.success) {
+        closeModal();
+        renderApp();
+      } else {
+        if (errorEl) { errorEl.textContent = res.error; errorEl.style.display = 'block'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Alterações'; }
       }
     });
   }

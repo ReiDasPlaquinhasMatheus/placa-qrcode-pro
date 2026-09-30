@@ -144,6 +144,58 @@ export function renderEditModal(plaqueId) {
   `;
 }
 
+// Modal de edição usado pelo CLIENTE (Portal), separado do modal de
+// admin acima. Não mostra nem deixa editar o PIN (o admin acima
+// mostrava o PIN em texto puro sem nenhuma confirmação — qualquer um
+// com acesso ao portal conseguia ler o PIN real só abrindo "Alterar",
+// o que anulava a proteção do botão "Apagar"), nem o campo de Status.
+// A alteração exige o PIN pra confirmar e é validada no banco (mesma
+// função pública usada na reativação, public_activate_plaque).
+export function renderClientEditModal(plaqueId) {
+  const plaque = storage.getPlaqueById(plaqueId);
+  if (!plaque) return '';
+
+  return `
+    <div class="modal-overlay" id="client-edit-plaque-modal" data-id="${escapeHtml(plaque.id)}">
+      <div class="modal-box">
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1rem; font-weight: 700;">Alterar Plaquinha: ${escapeHtml(plaque.id)}</h3>
+          <button class="btn-close-modal btn btn-ghost btn-sm" style="padding: 4px 8px;" title="Fechar">
+            ${getIcon('close', '', 16)}
+          </button>
+        </div>
+
+        <form id="form-client-edit-plaque">
+
+          <div class="form-group">
+            <label class="form-label" for="cep-name">Nome da Empresa / Estabelecimento</label>
+            <input type="text" id="cep-name" class="form-input" value="${escapeHtml(plaque.name || '')}" placeholder="Ex: Restaurante Bom Sabor" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cep-target-url">Link de Destino (Google Meu Negócio)</label>
+            <input type="url" id="cep-target-url" class="form-input" value="${escapeHtml(plaque.target_url || '')}" placeholder="https://search.google.com/local/writereview?placeid=..." required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="cep-pin">Digite o PIN de segurança para confirmar</label>
+            <input type="password" id="cep-pin" class="form-input font-mono" maxlength="6" placeholder="PIN da plaquinha" autocomplete="off" required />
+          </div>
+
+          <div id="cep-error" style="color: #DC2626; font-size: 0.75rem; margin-bottom: 8px; display: none;"></div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+            <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
+            <button type="submit" id="btn-submit-client-edit" class="btn btn-primary btn-sm">Salvar Alterações</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 // Modal do Guia Netlify
 export function renderDeployGuideModal() {
   return `
