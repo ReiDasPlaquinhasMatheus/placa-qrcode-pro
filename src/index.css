@@ -1000,3 +1000,58 @@ a {
 
 /* Filhos de grid podem encolher abaixo do conteúdo (gráfico tem scroll próprio) */
 .resp-grid-2 > *, .resp-grid-3 > *, .resp-grid-4 > *, .resp-grid-chart > * { min-width: 0; }
+
+/* Tela de carregamento (substitui números parciais enquanto os dados completos chegam) */
+.app-loading {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-page);
+  padding: 1.5rem;
+}
+
+.app-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.app-loading-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+.app-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--border-color);
+  border-top-color: #0F172A;
+  border-radius: 50%;
+  animation: app-spin 0.8s linear infinite;
+}
+
+.app-loading-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.app-loading-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner { animation-duration: 2.4s; }
+}

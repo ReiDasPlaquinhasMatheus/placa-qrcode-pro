@@ -58,6 +58,7 @@ const state = {
   portalSearch: '',
   portalFilter: 'all',
   portalPage: 1,
+  portalFreshCodes: new Set(), // clientes já confirmados com a nuvem nesta visita
   portalPerPage: 25,
 
   // Senha opcional do Portal do Cliente
@@ -139,6 +140,30 @@ function getRoute() {
   if (hash === '#/config' || cleanPath === 'config') return { name: 'config' };
 
   return { name: 'lotes' };
+}
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const withTimeout = (promise, ms) => Promise.race([Promise.resolve(promise).catch(() => false), sleep(ms)]);
+
+// Tela de carregamento: usada no lugar de números parciais enquanto os dados
+// completos ainda não chegaram (evita "3 clientes" que viram "10" segundos depois).
+function renderLoadingScreen(title = 'Carregando...', subtitle = '') {
+  return `
+    <div class="app-loading" role="status" aria-live="polite">
+      <div class="app-loading-box">
+        <img src="/logo.png" alt="" class="app-loading-logo" />
+        <div class="app-spinner" aria-hidden="true"></div>
+        <div class="app-loading-title">${escapeHtml(title)}</div>
+        ${subtitle ? `<div class="app-loading-sub">${escapeHtml(subtitle)}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Atualiza só o texto de "Atualizando… / Atualizado às HH:MM" na barra lateral
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-status-text');
+  if (el) el.textContent = storage.getSyncLabel();
 }
 
 // Busca o histórico real de leituras em segundo plano e redesenha a tela só
@@ -232,36 +257,64 @@ async function renderApp() {
         state.portalPasswordRequired = false;
         state.portalShowPasswordBanner = false;
         state.portalPasswordCode = null;
-      } else if (!storage.getClientByCode(portalCode)) {
-        // Ainda não temos os dados localmente. Se já existe sessão de
-        // senha válida, tenta usá-la primeiro (pode ter sido criada com
-        // o código canônico, mesmo que a URL/busca use o telefone cru).
+      } else if (!state.portalFreshCodes.has(portalCode) || !storage.getClientByCode(portalCode)) {
+        // Primeira abertura desta visita (ou ainda sem dados): confirma com a
+        // nuvem ANTES de mostrar. Mostrar o cache direto deixava o cliente vendo
+        // uma lista antiga (ex.: 3 placas) mesmo tendo comprado mais.
+        const hadLocal = Boolean(storage.getClientByCode(portalCode));
+        appEl.innerHTML = renderLoadingScreen('Carregando suas plaquinhas...');
+
+        let resolved = false;
         const session = storage.getClientSessionInfo();
         if (session && session.token) {
+          // Sessão de senha válida: usa ela (pode ter sido criada com o código
+          // canônico, mesmo que a URL/busca use o telefone cru).
           const ok = await storage.fetchClientBySession(session.code);
-          if (!ok || !storage.getClientByCode(portalCode)) {
-            if (!storage.getClientByCode(portalCode)) {
-              storage.clearClientSessionInfo();
-            }
+          if (ok && storage.getClientByCode(portalCode)) {
+            resolved = true;
+          } else if (!storage.getClientByCode(portalCode)) {
+            storage.clearClientSessionInfo();
           }
         }
 
-        if (!storage.getClientByCode(portalCode)) {
+        if (resolved) {
+          state.portalPasswordRequired = false;
+          state.portalPasswordCode = null;
+          state.portalShowPasswordBanner = false;
+        } else {
           const resolvedCode = await storage.checkClientHasPassword(portalCode);
           if (resolvedCode) {
+            // Conta protegida e sem sessão válida: não mostra dados em cache
+            storage.clientLogout(resolvedCode);
             state.portalPasswordRequired = true;
             state.portalPasswordCode = resolvedCode;
             state.portalShowPasswordBanner = false;
           } else {
-            await storage.fetchClientFromCloud(portalCode);
-            state.portalPasswordRequired = false;
-            state.portalPasswordCode = null;
-            state.portalShowPasswordBanner = true;
+            const refreshed = await storage.refreshClientFromCloud(portalCode);
+            if (refreshed === 'password_required') {
+              storage.clientLogout(portalCode);
+              state.portalPasswordRequired = true;
+              state.portalPasswordCode = portalCode;
+              state.portalShowPasswordBanner = false;
+            } else {
+              // 'ok', 'empty' ou 'error' (sem rede: segue com o cache que houver)
+              state.portalPasswordRequired = false;
+              state.portalPasswordCode = null;
+              state.portalShowPasswordBanner = !hadLocal;
+            }
           }
-        } else {
-          state.portalPasswordRequired = false;
-          state.portalPasswordCode = null;
-          state.portalShowPasswordBanner = false;
+        }
+
+        if (!state.portalPasswordRequired) {
+          state.portalFreshCodes.add(portalCode);
+        }
+      }
+
+      // Histórico de leituras: espera um pouco para a primeira tela já sair certa
+      if (portalCode && !state.portalPasswordRequired) {
+        const knownClient = storage.getClientByCode(portalCode);
+        if (knownClient && knownClient.client_code) {
+          await withTimeout(storage.fetchClientScanStats(knownClient.client_code), 2500);
         }
       }
 
@@ -327,6 +380,9 @@ async function renderApp() {
     // 6. Painel Administrativo com Sidebar Lateral (Apenas para Administrador autenticado)
     let mainContentHtml = '';
     if (route.name === 'dashboard') {
+      if (!storage.adminScanStats) {
+        await withTimeout(storage.fetchAdminScanStats(), 2500);
+      }
       refreshScanStatsInBackground('admin');
       mainContentHtml = renderDashboardView({
         period: state.dashboardPeriod,
@@ -1779,14 +1835,54 @@ window.addEventListener('hashchange', () => {
 });
 
 // Inicialização Imediata e Resiliente (Resolve tela branca em refresh)
-function startApp() {
-  // 1. Renderiza imediatamente com dados em cache local (sem esperar rede)
-  renderApp();
+// Rotas públicas (QR, ativação, portal do cliente, login) não dependem do
+// cache completo do painel.
+function isAdminAreaRoute() {
+  const route = getRoute();
+  return !['redirect', 'activate', 'cliente', 'admin-login'].includes(route.name) && storage.isAdminAuthenticated();
+}
 
-  // 2. Sincroniza em segundo plano com o Supabase/API Local e re-renderiza se houver novidades
-  storage.initServerSync().then(() => {
+async function startApp() {
+  const appEl = document.getElementById('app');
+
+  if (!isAdminAreaRoute()) {
+    // Telas públicas: renderiza já e só redesenha se a sincronização trouxer
+    // algo diferente (evita piscar e evita reprocessar a rota de redirecionamento).
     renderApp();
-  }).catch(() => {});
+    const before = storage.getDataSignature();
+    storage.initServerSync().then(() => {
+      if (storage.getDataSignature() !== before && !document.querySelector('.modal-overlay')) renderApp();
+    }).catch(() => {});
+    return;
+  }
+
+  // Painel do admin: nunca desenha números parciais.
+  // O cache do localStorage guarda só um subconjunto das placas quando há muitas
+  // (mostrava poucos clientes e depois pulava para o total). O IndexedDB tem tudo
+  // da última sincronização, então esperamos ele (rápido, local) antes de desenhar.
+  await storage.whenLocalReady(2000);
+
+  if (storage.plaques.length > 0 && storage.localCacheTrusted) {
+    // Cache completo: desenha na hora e atualiza em segundo plano, só se mudou.
+    renderApp();
+    const before = storage.getDataSignature();
+    storage.initServerSync().then(() => {
+      updateSyncIndicator();
+      if (storage.getDataSignature() !== before && !document.querySelector('.modal-overlay')) renderApp();
+    }).catch(() => updateSyncIndicator());
+    return;
+  }
+
+  // Sem cache confiável (primeiro acesso, outro aparelho, cache limpo): tela de
+  // carregamento até a nuvem responder (cerca de 1–2 s), em vez de números parciais.
+  if (appEl) appEl.innerHTML = renderLoadingScreen('Carregando seus dados...', 'Sincronizando placas e clientes');
+  const sync = storage.initServerSync();
+  const finished = await Promise.race([sync.then(() => true).catch(() => true), sleep(12000).then(() => false)]);
+  renderApp();
+  if (!finished) {
+    // Rede lenta: mostra o que houver e atualiza quando a nuvem terminar
+    sync.then(() => { if (!document.querySelector('.modal-overlay')) renderApp(); }).catch(() => {});
+  }
 }
 
 // Inicia imediatamente se o DOM já estiver pronto (ou escuta DOMContentLoaded se ainda estiver carregando)

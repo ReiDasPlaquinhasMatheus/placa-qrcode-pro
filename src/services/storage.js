@@ -57,6 +57,9 @@ const isMissingRpcError = (err) => /could not find the function|erro 404/i.test(
 
 const STORAGE_KEY = 'placa_qrcode_pro_data_v6';
 const SETTINGS_KEY = 'placa_qrcode_pro_settings_v6';
+// Guarda quantas placas existiam na última gravação do cache local; permite saber
+// se o cache está COMPLETO ou é só o subconjunto reduzido do localStorage.
+const CACHE_META_KEY = 'placa_qrcode_pro_cache_meta_v1';
 
 // Credenciais padrão do Dono. Após o primeiro login, troque em Configurações > Credenciais.
 const DEFAULT_ADMIN_USER = 'Matheus';
@@ -77,6 +80,13 @@ class StorageService {
     this._cachedStats = null;
     this._saveDebounceTimer = null;
 
+    // Estado de sincronização / confiabilidade do cache local
+    this.syncState = 'idle';          // 'idle' | 'syncing' | 'offline'
+    this.lastSyncAt = null;
+    this._cloudSyncedAt = null;
+    this.localCacheTrusted = false;   // true = o cache local tem TODAS as placas da última sincronização
+    this._localReady = Promise.resolve();
+
     // Inicialização de dados
     this.initInitialData();
   }
@@ -85,18 +95,73 @@ class StorageService {
   initInitialData() {
     const local = this.loadLocalPlaques();
     this.setPlaquesInternal(local);
+    // O localStorage só guarda tudo quando cabe (<= 2500 placas); acima disso
+    // guarda um subconjunto, e mostrar esse subconjunto dava números errados.
+    const meta = this.readCacheMeta();
+    this.localCacheTrusted = local.length > 0 && Boolean(meta) && meta.total === local.length;
     this.hydrateFromIndexedDBAndCloud();
   }
 
-  setPlaquesInternal(plaquesArray) {
-    this.plaques = Array.isArray(plaquesArray) ? plaquesArray : [];
-    this.plaquesMap.clear();
+  readCacheMeta() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(CACHE_META_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // Resolve quando o cache local (IndexedDB, que guarda TODAS as placas) terminou
+  // de carregar, ou após o limite de tempo.
+  whenLocalReady(timeoutMs = 2000) {
+    return Promise.race([
+      this._localReady,
+      new Promise(resolve => setTimeout(resolve, timeoutMs))
+    ]);
+  }
+
+  // Assinatura barata do conteúdo (independente da ordem) para saber se a
+  // sincronização trouxe algo diferente do que já está na tela.
+  getDataSignature() {
+    let sum = 0;
     for (let i = 0; i < this.plaques.length; i++) {
       const p = this.plaques[i];
-      if (p && p.id) {
-        this.plaquesMap.set(p.id.toUpperCase(), p);
-      }
+      const str = `${p.id}|${p.status}|${p.name}|${p.target_url}|${p.client_code}|${p.client_name}|${p.client_phone}|${p.scans_count}|${p.last_scan_at}|${p.pin}|${p.batch_name}`;
+      let h = 5381;
+      for (let j = 0; j < str.length; j++) h = ((h * 33) ^ str.charCodeAt(j)) >>> 0;
+      sum = (sum + h) >>> 0;
     }
+    return `${this.plaques.length}:${sum}`;
+  }
+
+  // Texto curto para a barra lateral: deixa claro quando os dados são frescos
+  getSyncLabel() {
+    if (this.syncState === 'syncing') return 'Atualizando…';
+    const t = this.lastSyncAt || (this.readCacheMeta() || {}).savedAt;
+    const hhmm = t ? new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+    if (this.syncState === 'offline') return hhmm ? `Sem conexão · dados de ${hhmm}` : 'Sem conexão';
+    return hhmm ? `Atualizado às ${hhmm}` : '';
+  }
+
+  setPlaquesInternal(plaquesArray) {
+    const incoming = Array.isArray(plaquesArray) ? plaquesArray : [];
+    // Uma placa por ID. Listas paginadas com ordenação instável podem trazer a
+    // mesma placa em duas páginas; sem isso as contagens (placas, clientes,
+    // leituras) saíam infladas, e o cache local nunca batia com o total salvo.
+    const seen = new Set();
+    this.plaques = [];
+    this.plaquesMap.clear();
+    for (let i = 0; i < incoming.length; i++) {
+      const p = incoming[i];
+      if (!p || !p.id) continue;
+      const key = p.id.toUpperCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      this.plaques.push(p);
+      this.plaquesMap.set(key, p);
+    }
+    this.duplicatesDropped = incoming.length - this.plaques.length;
     this.invalidateCache();
   }
 
@@ -108,15 +173,21 @@ class StorageService {
   }
 
   async hydrateFromIndexedDBAndCloud() {
-    try {
-      // 1. Tenta carregar do IndexedDB
-      const idbData = await idb.getAllPlaques();
-      if (Array.isArray(idbData) && idbData.length > 0) {
-        this.setPlaquesInternal(idbData);
+    this._localReady = (async () => {
+      try {
+        // 1. IndexedDB guarda TODAS as placas da última sincronização
+        const idbData = await idb.getAllPlaques();
+        // Não sobrescreve dados que a nuvem já entregou enquanto isto carregava
+        if (Array.isArray(idbData) && idbData.length > 0 && !this._cloudSyncedAt) {
+          const meta = this.readCacheMeta();
+          this.setPlaquesInternal(idbData);
+          this.localCacheTrusted = !meta || meta.total === idbData.length;
+        }
+      } catch (e) {
+        console.warn('Falha na hidratação IndexedDB:', e);
       }
-    } catch (e) {
-      console.warn('Falha na hidratação IndexedDB:', e);
-    }
+    })();
+    await this._localReady;
 
     // 2. Sincroniza com Supabase Cloud e API Local em segundo plano
     this.initCloudAndServerSync();
@@ -373,19 +444,60 @@ class StorageService {
     try {
       const rows = await this.callRpc('public_get_client_plaques_by_session', { p_token: session.token }, 5000);
       if (Array.isArray(rows) && rows.length > 0) {
-        rows.forEach(p => {
-          const upperId = p.id.toUpperCase();
-          this.plaquesMap.set(upperId, p);
-          this.plaques = this.plaques.filter(item => item.id.toUpperCase() !== upperId);
-          this.plaques.unshift(p);
-        });
-        this.invalidateCache();
-        this.saveToDisk(this.plaques);
+        this.replaceClientPlaques(rows, this.getClientByCode(clientCode));
         return true;
       }
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  // Troca TODAS as placas locais de um cliente pelas que vieram da nuvem. Antes
+  // só se somava/substituía as que chegavam, então uma placa nova do cliente
+  // nunca aparecia e uma placa removida nunca sumia do cache dele. Campos que a
+  // nuvem não devolve ao cliente (ex.: pin, no cache do admin) são preservados.
+  replaceClientPlaques(rows, staleClient = null) {
+    const staleIds = new Set();
+    if (staleClient) (staleClient.plaques || []).forEach(p => staleIds.add(String(p.id).toUpperCase()));
+    const oldById = new Map();
+    rows.forEach(r => {
+      const id = String(r.id).toUpperCase();
+      staleIds.add(id);
+      const old = this.plaquesMap.get(id);
+      if (old) oldById.set(id, old);
+    });
+
+    this.plaques = this.plaques.filter(p => !staleIds.has(String(p.id).toUpperCase()));
+    const merged = rows.map(r => {
+      const old = oldById.get(String(r.id).toUpperCase());
+      return old ? { ...old, ...r } : r;
+    });
+    this.plaques.unshift(...merged);
+
+    this.plaquesMap.clear();
+    for (const p of this.plaques) {
+      if (p && p.id) this.plaquesMap.set(p.id.toUpperCase(), p);
+    }
+    this.invalidateCache();
+    this.saveToDisk(this.plaques);
+  }
+
+  // Atualiza as placas de um cliente SEM senha direto da nuvem (telefone/código).
+  // Devolve 'ok' | 'empty' | 'password_required' | 'error'. Em 'error' (sem rede)
+  // o que já estava em cache continua valendo.
+  async refreshClientFromCloud(query) {
+    if (!query || !this.settings.supabaseUrl || !this.settings.supabaseKey) return 'error';
+    const stale = this.getClientByCode(query);
+    try {
+      const rows = await this.callRpc('public_get_client_plaques', { p_query: String(query).trim() }, 5000);
+      if (!Array.isArray(rows)) return 'error';
+      if (rows.length === 0) return 'empty';
+      this.replaceClientPlaques(rows, stale);
+      return 'ok';
+    } catch (e) {
+      if (/PASSWORD_REQUIRED/.test(String((e && e.message) || ''))) return 'password_required';
+      return 'error';
     }
   }
 
@@ -566,6 +678,7 @@ class StorageService {
       return this._syncPromise;
     }
 
+    this.syncState = 'syncing';
     this._syncPromise = (async () => {
       // 1. Só baixa a tabela inteira (com dados de clientes) se houver uma
       //    sessão de administrador válida — visitantes públicos (scan,
@@ -603,6 +716,10 @@ class StorageService {
           if (allCloudData.length > 0) {
             this.setPlaquesInternal(allCloudData);
             this.saveToDisk(this.plaques);
+            this.localCacheTrusted = true;
+            this._cloudSyncedAt = Date.now();
+            this.lastSyncAt = this._cloudSyncedAt;
+            this.syncState = 'idle';
 
             // Sincroniza com a API local em segundo plano
             fetch('/api/plaques/sync', {
@@ -633,6 +750,10 @@ class StorageService {
 
       return this.plaques;
     })().finally(() => {
+      // Não chegou dado novo da nuvem (sem sessão de admin, sem rede ou erro)
+      if (this.syncState === 'syncing') {
+        this.syncState = this.getAdminSessionToken() ? 'offline' : 'idle';
+      }
       this._syncPromise = null;
     });
 
@@ -645,6 +766,11 @@ class StorageService {
     
     // 1. Persistência Assíncrona no IndexedDB (Suporta 100.000+ registros)
     idb.saveAllPlaques(targetPlaques).catch(() => {});
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(CACHE_META_KEY, JSON.stringify({ total: targetPlaques.length, savedAt: Date.now() }));
+      }
+    } catch (e) {}
 
     // 2. Fallback no LocalStorage com proteção contra QuotaExceededError
     try {

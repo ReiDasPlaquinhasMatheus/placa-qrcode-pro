@@ -107,6 +107,7 @@ export function renderSidebar(activeRoute = 'lotes') {
           <span class="status-dot" style="background-color: ${hasCloudDb ? '#059669' : '#D97706'};"></span>
           <span>${hasCloudDb ? 'Supabase Nuvem' : 'Local'}</span>
         </div>
+        <div id="sync-status-text" style="font-size: 0.625rem; color: #64748B; font-family: var(--font-mono); margin: -2px 0 2px 14px;">${storage.getSyncLabel()}</div>
         <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: #64748B; font-family: var(--font-mono);">
           <span>Leituras:</span>
           <span style="color: #F3F4F6; font-weight: 600;">${stats.totalScans.toLocaleString('pt-BR')}</span>
