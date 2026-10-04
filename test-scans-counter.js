@@ -9,21 +9,27 @@ console.log('===============================================================\n')
 async function testScansCounter() {
   const targetId = 'PLQ-SCAN-TEST-001';
 
-  // 1. Criar ou resetar uma placa de teste
-  await storage.createBatch({
-    prefix: 'PLQ-SCAN-TEST-',
-    startNumber: 1,
-    count: 1,
-    batchName: 'Lote Teste Scans'
-  });
-
-  const resAct = await storage.activatePlaque(targetId, {
+  // 1. Criar ou resetar uma placa de teste em memória
+  const testPlaque = {
+    id: targetId,
     name: 'Restaurante Teste de Scans',
-    targetUrl: 'https://search.google.com/local/writereview?placeid=ChIJTestScans',
+    status: 'active',
+    target_url: 'https://search.google.com/local/writereview?placeid=ChIJTestScans',
     pin: '1234',
-    clientName: 'Cliente Teste Scan',
-    clientPhone: '(11) 99999-1111'
-  });
+    client_name: 'Cliente Teste Scan',
+    client_phone: '(11) 99999-1111',
+    client_code: '11119999911',
+    created_at: new Date().toISOString(),
+    activated_at: new Date().toISOString(),
+    scans_count: 0,
+    last_scan_at: null,
+    batch_name: 'Lote Teste Scans'
+  };
+
+  storage.plaques = storage.plaques.filter(p => p.id !== targetId);
+  storage.plaques.unshift(testPlaque);
+  storage.plaquesMap.set(targetId, testPlaque);
+  storage.invalidateCache();
 
   const initialPlaque = storage.getPlaqueById(targetId);
   console.log(`📌 1. Placa inicial criada:`);

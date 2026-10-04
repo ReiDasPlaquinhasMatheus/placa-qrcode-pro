@@ -20,17 +20,20 @@ export function renderActivationView(plaqueId) {
   const isAlreadyActive = plaque.status === 'active';
 
   return `
-    <div class="container py-8" style="max-width: 480px;" id="activation-card-container">
-      <div class="card p-6">
+    <div class="container py-8" style="max-width: 460px;" id="activation-card-container">
+      <div class="card p-6" style="border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
         
         <!-- Cabeçalho com Logo -->
         <div class="text-center mb-5">
-          <img src="/logo.png" alt="Rei do NFC" style="height: 72px; width: 72px; object-fit: contain; margin: 0 auto 10px; filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.25));" />
-          <div style="font-size: 0.75rem; font-weight: 800; color: #2563EB; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Rei do NFC Oficial</div>
-          <div class="badge ${isAlreadyActive ? 'badge-active' : 'badge-virgin'} mb-2 font-mono">
-            Plaquinha: ${escapeHtml(plaque.id)}
+          <img src="/logo.png" alt="Rei do NFC" style="height: 48px; width: 48px; object-fit: contain; margin: 0 auto 10px;" />
+          <div style="font-size: 0.6875rem; font-weight: 700; color: #2563EB; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
+            Rei do NFC • Hardware Activation
           </div>
-          <h1 style="font-size: 1.375rem; font-weight: 800; color: #0F172A;">
+          <div class="badge ${isAlreadyActive ? 'badge-active' : 'badge-virgin'} mb-2 font-mono" style="display: inline-flex; align-items: center; gap: 4px;">
+            <span>${isAlreadyActive ? '●' : '○'}</span>
+            <span>Plaquinha: ${escapeHtml(plaque.id)}</span>
+          </div>
+          <h1 style="font-size: 1.25rem; font-weight: 700; color: #0F172A; letter-spacing: -0.01em;">
             ${isAlreadyActive ? 'Atualizar Plaquinha QR Code' : 'Ativar Minha Plaquinha QR Code'}
           </h1>
           <p class="text-xs text-muted mt-1">

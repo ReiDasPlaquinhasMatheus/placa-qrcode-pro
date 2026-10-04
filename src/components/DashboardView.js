@@ -1,5 +1,5 @@
 // Placa QR Pro - Dashboard & Métricas Analíticas
-// Design Compacto, Elegante e Refinado (Visual Executivo em Família Montserrat)
+// Estilo Linear / Clean Tech (Alta Densidade, Workstation, Sem Clichês de IA)
 import { storage } from '../services/storage.js';
 import { getIcon } from '../utils/icons.js';
 import { formatPhone, escapeHtml } from '../utils/helpers.js';
@@ -8,6 +8,10 @@ export function renderDashboardView(options = {}) {
   const selectedPeriod = parseInt(options.period || 14, 10);
   const activeSeries = options.series || 'both'; // 'scans', 'activations', 'both'
   const metrics = storage.getDashboardMetrics(selectedPeriod);
+  const hasEventHistory = metrics.scanSource === 'events';
+  const historySinceLabel = metrics.scanHistorySince
+    ? new Date(metrics.scanHistorySince).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    : '';
 
   // Dados do gráfico
   const timeline = metrics.timeline;
@@ -22,268 +26,281 @@ export function renderDashboardView(options = {}) {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (activePercent / 100) * circumference;
 
-  // Top 3 do pódio
+  // Top 3 do ranking
   const top1 = metrics.topClients[0] || null;
   const top2 = metrics.topClients[1] || null;
   const top3 = metrics.topClients[2] || null;
 
   return `
-    <!-- Topo Compacto -->
-    <div class="content-header" style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 0.9rem 1.5rem;">
+    <!-- Topo Workstation -->
+    <div class="content-header" style="background: #FFFFFF; border-bottom: 1px solid var(--border-color); padding: 0.85rem 1.25rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(37,99,235,0.1); color: #2563EB; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('barchart', '', 18)}
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('barchart', '', 15)}
             </div>
             <div>
-              <h1 style="font-size: 1.25rem; font-weight: 800; color: #0F172A; margin: 0; letter-spacing: -0.01em; line-height: 1.2;">
-                Dashboard & Métricas
+              <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em; line-height: 1.2;">
+                Métricas & Tráfego
               </h1>
-              <p style="font-size: 0.75rem; color: #64748B; margin: 1px 0 0 0;">
-                Métricas ao vivo de leituras, novas ativações e ranking de parceiros
+              <p style="font-size: 0.72rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                Telemetria de leituras em tempo real, ativações de placas e clientes líderes
               </p>
             </div>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <!-- Seletor de Período Compacto -->
-          <div style="display: inline-flex; background: #F1F5F9; padding: 2px; border-radius: 8px; border: 1px solid #E2E8F0;">
-            <button class="btn btn-sm btn-dashboard-period ${selectedPeriod === 1 ? 'btn-primary' : 'btn-ghost'}" data-period="1" style="padding: 4px 10px; font-weight: 700; border-radius: 6px; font-size: 0.72rem;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <!-- Seletor de Período Linear -->
+          <div class="filter-tabs">
+            <button class="filter-btn btn-dashboard-period ${selectedPeriod === 1 ? 'active' : ''}" data-period="1">
               Hoje
             </button>
-            <button class="btn btn-sm btn-dashboard-period ${selectedPeriod === 7 ? 'btn-primary' : 'btn-ghost'}" data-period="7" style="padding: 4px 10px; font-weight: 700; border-radius: 6px; font-size: 0.72rem;">
-              7 Dias
+            <button class="filter-btn btn-dashboard-period ${selectedPeriod === 7 ? 'active' : ''}" data-period="7">
+              7D
             </button>
-            <button class="btn btn-sm btn-dashboard-period ${selectedPeriod === 14 ? 'btn-primary' : 'btn-ghost'}" data-period="14" style="padding: 4px 10px; font-weight: 700; border-radius: 6px; font-size: 0.72rem;">
-              14 Dias
+            <button class="filter-btn btn-dashboard-period ${selectedPeriod === 14 ? 'active' : ''}" data-period="14">
+              14D
             </button>
-            <button class="btn btn-sm btn-dashboard-period ${selectedPeriod === 30 ? 'btn-primary' : 'btn-ghost'}" data-period="30" style="padding: 4px 10px; font-weight: 700; border-radius: 6px; font-size: 0.72rem;">
-              30 Dias
+            <button class="filter-btn btn-dashboard-period ${selectedPeriod === 30 ? 'active' : ''}" data-period="30">
+              30D
             </button>
           </div>
 
-          <a href="#/todas-placas" class="btn btn-outline btn-sm" style="font-weight: 700; font-size: 0.75rem; gap: 5px; padding: 5px 11px; border-radius: 7px;">
-            ${getIcon('grid', '', 14)}
-            <span>Ver Placas</span>
+          <a href="#/todas-placas" class="btn btn-secondary btn-sm" style="gap: 5px;">
+            ${getIcon('grid', '', 13)}
+            <span>Ver Inventário</span>
           </a>
         </div>
       </div>
     </div>
 
     <!-- Corpo com Espaçamento Otimizado -->
-    <div class="content-body" style="padding: 1.25rem 1.5rem;">
+    <div class="content-body" style="padding: 1.25rem;">
       
-      <!-- 4 CARDS DE MÉTRICAS RÁPIDAS (KPIs COMPACTOS) -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+      <!-- 4 CARDS DE KPIs PRECISOS -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
         
         <!-- Card 1: Leituras / Scans -->
-        <div class="card" style="padding: 0.9rem 1.15rem; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #E2E8F0; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,0.02);">
+        <div class="card" style="padding: 0.85rem 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <span style="font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B;">Leituras (Scans)</span>
-              <div style="font-size: 1.5rem; font-weight: 800; color: #0F172A; line-height: 1.15; margin-top: 3px;">
+              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Leituras Totais</span>
+              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
                 ${metrics.totalScans.toLocaleString('pt-BR')}
               </div>
             </div>
-            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(37,99,235,0.1); color: #2563EB; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('qr', '', 18)}
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('qr', '', 14)}
             </div>
           </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.75rem;">
-            <span style="display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: ${metrics.todayScans > 0 ? '#16A34A' : '#64748B'}; background: ${metrics.todayScans > 0 ? 'rgba(22,163,74,0.1)' : '#F1F5F9'}; padding: 1px 6px; border-radius: 5px; font-size: 0.7rem;">
-              ${metrics.todayScans > 0 ? getIcon('trendingup', '', 12) : ''}
-              ${metrics.todayScans} hoje
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+            <span class="badge ${metrics.todayScans > 0 ? 'badge-active' : 'badge-virgin'}">
+              ${metrics.todayScans > 0 ? '+' : ''}${metrics.todayScans} hoje
             </span>
-            <span style="color: #94A3B8; font-size: 0.7rem;">Ontem: ${metrics.yesterdayScans}</span>
+            <span style="color: var(--text-muted); font-size: 0.6875rem;">Ontem: ${metrics.yesterdayNoHistory ? '—' : metrics.yesterdayScans}</span>
           </div>
         </div>
 
         <!-- Card 2: Placas Ativadas -->
-        <div class="card" style="padding: 0.9rem 1.15rem; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #E2E8F0; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,0.02);">
+        <div class="card" style="padding: 0.85rem 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <span style="font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B;">Placas Ativadas</span>
-              <div style="font-size: 1.5rem; font-weight: 800; color: #0F172A; line-height: 1.15; margin-top: 3px;">
+              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Placas em Uso</span>
+              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
                 ${metrics.totalActive.toLocaleString('pt-BR')}
               </div>
             </div>
-            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(16,185,129,0.1); color: #10B981; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('zap', '', 18)}
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('zap', '', 14)}
             </div>
           </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.75rem;">
-            <span style="display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: #059669; background: rgba(16,185,129,0.1); padding: 1px 6px; border-radius: 5px; font-size: 0.7rem;">
-              ${metrics.activationRate}% ativadas
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+            <span class="badge badge-active">
+              ${metrics.activationRate}% da frota
             </span>
-            <span style="color: #94A3B8; font-size: 0.7rem;">+${metrics.todayActivations} hoje</span>
+            <span style="color: var(--text-muted); font-size: 0.6875rem;">+${metrics.todayActivations} hoje</span>
           </div>
         </div>
 
         <!-- Card 3: Clientes Únicos -->
-        <div class="card" style="padding: 0.9rem 1.15rem; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #E2E8F0; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,0.02);">
+        <div class="card" style="padding: 0.85rem 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <span style="font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B;">Clientes Ativadores</span>
-              <div style="font-size: 1.5rem; font-weight: 800; color: #0F172A; line-height: 1.15; margin-top: 3px;">
+              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Clientes com Placas</span>
+              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
                 ${metrics.uniqueActiveClients}
               </div>
             </div>
-            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(168,85,247,0.1); color: #9333EA; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('users', '', 18)}
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('users', '', 14)}
             </div>
           </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.75rem;">
-            <a href="#/clientes" style="color: #2563EB; font-weight: 700; font-size: 0.7rem; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
-              <span>Ver todos (${metrics.uniqueActiveClients})</span>
-              ${getIcon('arrowright', '', 11)}
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+            <a href="#/clientes" style="color: var(--text-muted); font-weight: 500; font-size: 0.6875rem; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
+              <span>Ver diretório completo</span>
+              ${getIcon('arrowright', '', 10)}
             </a>
           </div>
         </div>
 
         <!-- Card 4: Top Ativador Líder -->
-        <div class="card" style="padding: 0.9rem 1.15rem; background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); border: 1px solid #E2E8F0; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,0.02);">
+        <div class="card" style="padding: 0.85rem 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <span style="font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B;">Líder de Ativações</span>
-              <div style="font-size: 1.05rem; font-weight: 800; color: #0F172A; line-height: 1.25; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;" title="${escapeHtml(top1 ? top1.name : 'Nenhum')}">
-                ${escapeHtml(top1 ? top1.name : 'Nenhum ainda')}
+              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Parceiro Destaque</span>
+              <div style="font-size: 1rem; font-weight: 600; color: var(--text-main); line-height: 1.25; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;" title="${escapeHtml(top1 ? top1.name : 'Nenhum')}">
+                ${escapeHtml(top1 ? top1.name : 'Nenhum')}
               </div>
             </div>
-            <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(234,179,8,0.12); color: #CA8A04; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('award', '', 18)}
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('award', '', 14)}
             </div>
           </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.75rem;">
-            <span style="font-weight: 700; color: #B45309; background: rgba(234,179,8,0.15); padding: 1px 6px; border-radius: 5px; font-size: 0.7rem;">
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+            <span class="badge badge-virgin">
               ${top1 ? top1.activeCount : 0} placas
             </span>
-            <span style="color: #94A3B8; font-size: 0.7rem;">${top1 ? top1.totalScans : 0} leituras</span>
+            <span style="color: var(--text-muted); font-size: 0.6875rem;">${top1 ? top1.totalScans : 0} leituras</span>
+          </div>
+        </div>
+
+        <!-- Card 5: CIÊNCIA DE DADOS - Reviews Google Gerados & Pareto 80/20 -->
+        <div class="card" style="padding: 0.85rem 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-emerald); font-family: var(--font-mono);">Reviews Google Estimados</span>
+              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
+                ~${(metrics.networkEstimatedReviews || 0).toLocaleString('pt-BR')}
+              </div>
+            </div>
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; display: flex; align-items: center; justify-content: center;">
+              ${getIcon('star', '', 14)}
+            </div>
+          </div>
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+            <span class="badge badge-active" title="Os 20% de clientes com mais leituras geram esta fatia do total de leituras">
+              Pareto: ${metrics.paretoShare || '0.0'}%
+            </span>
+            <span style="color: var(--text-muted); font-size: 0.6875rem;">~22% conversão de scans</span>
           </div>
         </div>
 
       </div>
 
       <!-- SEÇÃO 1: GRÁFICO COMPACTO DE LINHA DO TEMPO & DONUT DE ESTOQUE -->
-      <div style="display: grid; grid-template-columns: 2.3fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+      <div class="resp-grid-chart" style="gap: 0.75rem; margin-bottom: 1rem;">
         
-        <!-- Bloco do Gráfico -->
-        <div class="card" style="padding: 1.15rem 1.25rem; border: 1px solid #E2E8F0; border-radius: 14px; background: #FFFFFF; box-shadow: 0 2px 10px rgba(15,23,42,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+        <!-- Bloco do Gráfico Workstation -->
+        <div class="card" style="padding: 1rem 1.15rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem;">
             <div>
-              <h2 style="font-size: 0.95rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 6px;">
-                <span>${selectedPeriod === 1 ? 'Leituras e Ativações de Hoje (Por Horário)' : 'Evolução Diária de Leituras e Ativações'}</span>
-                <span class="badge" style="background: rgba(37,99,235,0.1); color: #2563EB; font-size: 0.65rem; font-weight: 700; padding: 2px 6px;">
-                  ${selectedPeriod === 1 ? 'Hoje (24 Horas)' : `Últimos ${selectedPeriod} dias`}
+              <h2 style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+                <span>${selectedPeriod === 1 ? 'Volume de Leituras e Ativações (24 Horas)' : 'Evolução Diária de Tráfego'}</span>
+                <span class="badge badge-virgin" style="font-family: var(--font-mono);">
+                  ${selectedPeriod === 1 ? 'Hoje' : `${selectedPeriod} dias`}
                 </span>
               </h2>
-              <p style="font-size: 0.75rem; color: #64748B; margin: 2px 0 0 0;">
-                ${selectedPeriod === 1 ? 'Volume de scans e novas plaquinhas ativadas por faixa de horário hoje' : 'Volume de scans de clientes e novas plaquinhas ativadas por data'}
-              </p>
             </div>
 
             <!-- Filtro de Séries do Gráfico -->
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <button class="btn btn-sm btn-dashboard-series ${activeSeries === 'both' ? 'btn-primary' : 'btn-ghost'}" data-series="both" style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 5px;">
-                Tudo
+            <div class="filter-tabs">
+              <button class="filter-btn btn-dashboard-series ${activeSeries === 'both' ? 'active' : ''}" data-series="both">
+                Ambos
               </button>
-              <button class="btn btn-sm btn-dashboard-series ${activeSeries === 'scans' ? 'btn-primary' : 'btn-ghost'}" data-series="scans" style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; display: flex; align-items: center; gap: 4px;">
-                <span style="width: 6px; height: 6px; border-radius: 50%; background: #2563EB;"></span>
-                <span>Leituras</span>
+              <button class="filter-btn btn-dashboard-series ${activeSeries === 'scans' ? 'active' : ''}" data-series="scans">
+                Leituras
               </button>
-              <button class="btn btn-sm btn-dashboard-series ${activeSeries === 'activations' ? 'btn-primary' : 'btn-ghost'}" data-series="activations" style="font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; display: flex; align-items: center; gap: 4px;">
-                <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
-                <span>Ativações</span>
+              <button class="filter-btn btn-dashboard-series ${activeSeries === 'activations' ? 'active' : ''}" data-series="activations">
+                Ativações
               </button>
             </div>
           </div>
 
           <!-- GRÁFICO SVG RESPONSIVO COM ALTURA COMPACTA -->
           <div style="width: 100%; overflow-x: auto;">
-            <div style="min-width: 580px; position: relative;">
+            <div style="min-width: 540px; position: relative;">
               ${renderTimelineSvgChart(timeline, maxVal, activeSeries)}
             </div>
           </div>
 
-          <!-- Legenda do Gráfico -->
-          <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid #F1F5F9; font-size: 0.72rem;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(180deg, #3B82F6 0%, #2563EB 100%);"></span>
-              <span style="color: #334155; font-weight: 600;">Leituras (Scans)</span>
+          <!-- Legenda do Gráfico Minimalista -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color); font-size: 0.6875rem; color: var(--text-muted); font-family: var(--font-mono);">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="width: 8px; height: 8px; border-radius: 2px; background: #0F172A;"></span>
+                <span>Leituras (Scans)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <span style="width: 8px; height: 8px; border-radius: 2px; background: #059669;"></span>
+                <span>Novas Placas</span>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(180deg, #34D399 0%, #10B981 100%);"></span>
-              <span style="color: #334155; font-weight: 600;">Placas Ativadas</span>
-            </div>
-            <div style="color: #94A3B8; font-size: 0.6875rem;">
-              <span>Passe o mouse nas colunas para ver detalhes</span>
+            <div>
+              <span>${hasEventHistory
+                ? (historySinceLabel ? `Histórico detalhado desde ${historySinceLabel}` : 'Histórico detalhado ativo: aguardando as primeiras leituras')
+                : 'Leituras por dia aproximadas (histórico detalhado desativado)'}</span>
             </div>
           </div>
         </div>
 
-        <!-- Bloco de Taxa de Ativação Geral (Donut / Estoque Compacto) -->
-        <div class="card" style="padding: 1.15rem 1.25rem; border: 1px solid #E2E8F0; border-radius: 14px; background: #FFFFFF; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 2px 10px rgba(15,23,42,0.02);">
+        <!-- Bloco de Status do Estoque (Clean Donut) -->
+        <div class="card" style="padding: 1rem; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
-            <h2 style="font-size: 0.95rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 6px;">
-              <span>Status do Estoque</span>
+            <h2 style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin: 0;">
+              Status da Frota
             </h2>
-            <p style="font-size: 0.75rem; color: #64748B; margin: 2px 0 0 0;">
+            <p style="font-size: 0.6875rem; color: var(--text-muted); margin: 2px 0 0 0;">
               Proporção de placas ativadas vs virgens
             </p>
 
             <!-- Donut SVG Compacto -->
-            <div style="display: flex; justify-content: center; align-items: center; margin: 0.9rem 0 0.6rem;">
-              <div style="position: relative; width: 110px; height: 110px;">
-                <svg width="110" height="110" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+            <div style="display: flex; justify-content: center; align-items: center; margin: 0.85rem 0 0.5rem;">
+              <div style="position: relative; width: 96px; height: 96px;">
+                <svg width="96" height="96" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
                   <!-- Background Track -->
-                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#F1F5F9" stroke-width="10"></circle>
+                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#E5E7EB" stroke-width="8"></circle>
                   <!-- Active Slice -->
-                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="url(#donutGradient)" stroke-width="10"
-                    stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" style="transition: stroke-dashoffset 0.8s ease;"></circle>
-                  <defs>
-                    <linearGradient id="donutGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#3B82F6" />
-                      <stop offset="100%" stop-color="#2563EB" />
-                    </linearGradient>
-                  </defs>
+                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#0F172A" stroke-width="8"
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" style="transition: stroke-dashoffset 0.5s ease;"></circle>
                 </svg>
 
                 <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
-                  <span style="font-size: 1.35rem; font-weight: 800; color: #0F172A; line-height: 1;">${metrics.activationRate}%</span>
-                  <span style="font-size: 0.6rem; font-weight: 700; color: #64748B; text-transform: uppercase; margin-top: 2px;">Ativadas</span>
+                  <span class="num-tabular" style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); line-height: 1;">${metrics.activationRate}%</span>
+                  <span style="font-size: 0.5625rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-top: 2px;">Ativas</span>
                 </div>
               </div>
             </div>
 
             <!-- Detalhes do Estoque Compacto -->
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #F8FAFC; border-radius: 7px; border: 1px solid #E2E8F0;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--bg-subtle); border-radius: var(--radius-xs); border: 1px solid var(--border-color); font-size: 0.72rem;">
                 <div style="display: flex; align-items: center; gap: 6px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563EB;"></span>
-                  <span style="font-size: 0.75rem; font-weight: 600; color: #334155;">Placas Ativas</span>
+                  <span style="width: 6px; height: 6px; border-radius: 50%; background: #059669;"></span>
+                  <span style="color: var(--text-main);">Ativadas</span>
                 </div>
-                <span style="font-weight: 800; font-size: 0.85rem; color: #0F172A;">${metrics.totalActive}</span>
+                <span class="num-tabular" style="font-weight: 600; color: var(--text-main);">${metrics.totalActive}</span>
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #F8FAFC; border-radius: 7px; border: 1px solid #E2E8F0;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--bg-subtle); border-radius: var(--radius-xs); border: 1px solid var(--border-color); font-size: 0.72rem;">
                 <div style="display: flex; align-items: center; gap: 6px;">
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #94A3B8;"></span>
-                  <span style="font-size: 0.75rem; font-weight: 600; color: #334155;">Disponíveis</span>
+                  <span style="width: 6px; height: 6px; border-radius: 50%; background: #9CA3AF;"></span>
+                  <span style="color: var(--text-main);">Disponíveis</span>
                 </div>
-                <span style="font-weight: 800; font-size: 0.85rem; color: #64748B;">${metrics.totalVirgin}</span>
+                <span class="num-tabular" style="font-weight: 600; color: var(--text-muted);">${metrics.totalVirgin}</span>
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #EFF6FF; border-radius: 7px; border: 1px solid #BFDBFE;">
-                <span style="font-size: 0.75rem; font-weight: 700; color: #1E40AF;">Total em Estoque</span>
-                <span style="font-weight: 800; font-size: 0.85rem; color: #1E40AF;">${metrics.totalPlaques}</span>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: #FFFFFF; border-radius: var(--radius-xs); border: 1px solid var(--border-color); font-size: 0.72rem;">
+                <span style="color: var(--text-muted); font-weight: 500;">Total Lotes</span>
+                <span class="num-tabular" style="font-weight: 700; color: var(--text-main);">${metrics.totalPlaques}</span>
               </div>
             </div>
           </div>
 
-          <div style="margin-top: 0.85rem;">
-            <a href="#/gerador" class="btn btn-primary btn-sm btn-block" style="font-weight: 700; font-size: 0.75rem; gap: 5px; padding: 7px 10px; border-radius: 7px;">
-              ${getIcon('plus', '', 14)}
+          <div style="margin-top: 0.75rem;">
+            <a href="#/gerador" class="btn btn-primary btn-sm w-full" style="gap: 5px;">
+              ${getIcon('plus', '', 13)}
               <span>Emitir Novo Lote</span>
             </a>
           </div>
@@ -291,63 +308,41 @@ export function renderDashboardView(options = {}) {
 
       </div>
 
-      <!-- SEÇÃO 2: QUEM MAIS ESTÁ ATIVANDO (PÓDIO & RANKING LEADERBOARD COMPACTOS) -->
-      <div style="margin-bottom: 1.25rem;">
+      <!-- SEÇÃO 2: RANKING LEADERBOARD COMPACTO -->
+      <div style="margin-bottom: 1rem;">
         
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.9rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="color: #EAB308;">${getIcon('award', '', 20)}</span>
-              <h2 style="font-size: 1.05rem; font-weight: 800; color: #0F172A; margin: 0; letter-spacing: -0.01em;">
-                Quem Mais Está Ativando Plaquinhas
-              </h2>
-            </div>
-            <p style="font-size: 0.75rem; color: #64748B; margin: 2px 0 0 0;">
-              Ranking de parceiros e clientes com maior volume de ativações e leituras
-            </p>
+            <h2 style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>Classificação de Clientes por Ativações</span>
+            </h2>
           </div>
 
-          <span style="font-size: 0.7rem; font-weight: 700; color: #64748B; background: #F1F5F9; padding: 3px 8px; border-radius: 5px;">
+          <span class="badge badge-virgin" style="font-family: var(--font-mono);">
             ${metrics.topClients.length} parceiros com placas ativas
           </span>
         </div>
 
-        <!-- PÓDIO DOS 3 PRIMEIROS COLOCADOS (CARDS COMPACTOS) -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-          
-          <!-- 1º LUGAR (OURO) -->
+        <!-- PÓDIO DOS 3 PRIMEIROS (CARDS COMPACTOS) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
           ${renderPodiumCard(top1, 1)}
-
-          <!-- 2º LUGAR (PRATA) -->
           ${renderPodiumCard(top2, 2)}
-
-          <!-- 3º LUGAR (BRONZE) -->
           ${renderPodiumCard(top3, 3)}
-
         </div>
 
         <!-- TABELA RANKING LEADERBOARD COMPACTA -->
-        <div class="card" style="border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; background: #FFFFFF; box-shadow: 0 2px 10px rgba(15,23,42,0.02);">
-          <div style="padding: 0.75rem 1.15rem; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.75rem; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.04em;">
-              Classificação dos Parceiros
-            </span>
-            <span style="font-size: 0.7rem; color: #64748B; font-weight: 600;">
-              Ordenado por: Quantidade de Placas Ativadas
-            </span>
-          </div>
-
-          <div class="table-container" style="margin: 0; border: none;">
+        <div class="card" style="overflow: hidden; margin-bottom: 1rem;">
+          <div class="table-container" style="border: none;">
             <table class="table" style="margin: 0; width: 100%;">
               <thead>
-                <tr style="background: #FFFFFF; font-size: 0.75rem;">
-                  <th style="width: 55px; text-align: center; padding: 8px 10px;">Posição</th>
-                  <th style="padding: 8px 10px;">Cliente / Parceiro</th>
-                  <th style="padding: 8px 10px;">Telefone</th>
-                  <th style="min-width: 150px; padding: 8px 10px;">Progresso Relativo</th>
-                  <th style="text-align: center; padding: 8px 10px;">Placas</th>
-                  <th style="text-align: center; padding: 8px 10px;">Scans</th>
-                  <th style="width: 120px; text-align: right; padding: 8px 10px;">Ações</th>
+                <tr>
+                  <th style="width: 50px; text-align: center;">Pos</th>
+                  <th>Cliente / Parceiro</th>
+                  <th>Telefone</th>
+                  <th style="min-width: 140px;">Proporção</th>
+                  <th style="text-align: center;">Placas</th>
+                  <th style="text-align: center;">Scans</th>
+                  <th style="width: 110px; text-align: right;">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,35 +352,103 @@ export function renderDashboardView(options = {}) {
           </div>
         </div>
 
+        <!-- CIÊNCIA DE DADOS ADMIN: RADAR DE SAÚDE DA BASE & DETECTOR DE CHURN -->
+        <div class="card p-4" style="margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 0.85rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <h3 style="font-size: 0.875rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                  Radar de Retenção & Saúde da Base (CRM Preditivo)
+                </h3>
+                <span class="badge badge-active" style="font-size: 0.65rem;">Ciência de Dados</span>
+              </div>
+              <p style="font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0 0;">
+                Monitore o engajamento de cada cliente e atue proativamente via WhatsApp antes do abandono.
+              </p>
+            </div>
+
+            <!-- Chips de Filtro Rápido do Radar -->
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;" id="radar-filter-container">
+              <button class="btn btn-xs btn-radar-filter active" data-category="all" style="font-size: 0.6875rem; padding: 3px 8px;">
+                Todos (${metrics.topClients.length})
+              </button>
+              <button class="btn btn-xs btn-radar-filter" data-category="power" style="font-size: 0.6875rem; padding: 3px 8px;">
+                🚀 Campeões (${(metrics.clientHealthMatrix?.power || []).length})
+              </button>
+              <button class="btn btn-xs btn-radar-filter" data-category="accelerating" style="font-size: 0.6875rem; padding: 3px 8px;">
+                📈 Acelerando (${(metrics.clientHealthMatrix?.accelerating || []).length})
+              </button>
+              <button class="btn btn-xs btn-radar-filter" data-category="stable" style="font-size: 0.6875rem; padding: 3px 8px;">
+                ⏸️ Estáveis (${(metrics.clientHealthMatrix?.stable || []).length})
+              </button>
+              <button class="btn btn-xs btn-radar-filter" data-category="atRisk" style="font-size: 0.6875rem; padding: 3px 8px; color: #DC2626; border-color: #FECACA; background: #FEF2F2;">
+                ⚠️ Em Risco (${(metrics.clientHealthMatrix?.atRisk || []).length})
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabela do Radar com WhatsApp Direto -->
+          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-height: 280px; overflow-y: auto;">
+            <table class="table" style="margin: 0; width: 100%; font-size: 0.75rem;">
+              <thead style="position: sticky; top: 0; background: #F8FAFC; z-index: 2;">
+                <tr>
+                  <th>Cliente</th>
+                  <th style="width: 120px;">Classificação</th>
+                  <th style="width: 90px; text-align: center;">Placas</th>
+                  <th style="width: 90px; text-align: center;">Scans</th>
+                  <th style="width: 130px;">Última Interação</th>
+                  <th style="width: 140px; text-align: right;">Ação Proativa</th>
+                </tr>
+              </thead>
+              <tbody id="radar-table-body">
+                ${renderRadarRows(metrics.clientHealthMatrix)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
-      <!-- SEÇÃO 3: DISTRIBUIÇÃO POR LOTES & ÚLTIMAS ATIVAÇÕES COMPACTAS -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <!-- SEÇÃO 3: DISTRIBUIÇÃO POR LOTES & ÚLTIMAS ATIVAÇÕES -->
+      <div class="resp-grid-2" style="gap: 0.75rem;">
         
-        <!-- Distribuição por Lotes -->
-        <div class="card" style="padding: 1.15rem 1.25rem; border: 1px solid #E2E8F0; border-radius: 14px; background: #FFFFFF; box-shadow: 0 2px 10px rgba(15,23,42,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-            <h3 style="font-size: 0.9rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 6px;">
-              ${getIcon('folder', '', 16)}
-              <span>Ativações por Lote de Produção</span>
-            </h3>
-            <a href="#/lotes" style="font-size: 0.72rem; font-weight: 700; color: #2563EB; text-decoration: none;">Ver Pastas</a>
+        <!-- Distribuição por Lotes & Burn Rate -->
+        <div class="card" style="padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div>
+              <h3 style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+                ${getIcon('folder', '', 14)}
+                <span>Distribuição & Giro de Lotes (Burn Rate)</span>
+              </h3>
+              <span style="font-size: 0.65rem; color: var(--text-muted);">Velocidade de consumo e estoque restante</span>
+            </div>
+            <a href="#/lotes" style="font-size: 0.6875rem; font-weight: 500; color: var(--text-muted); text-decoration: none;">Ver Pastas</a>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 10px;">
             ${metrics.batchDistribution.map(b => {
               const pct = parseFloat(b.percentActive) || 0;
               return `
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-bottom: 3px;">
-                    <div style="font-weight: 700; color: #1E293B;">${escapeHtml(b.name)}</div>
-                    <div style="color: #64748B;">
-                      <span style="font-weight: 800; color: #0F172A;">${b.active}</span> / ${b.total} ativadas 
-                      <span style="color: #2563EB; font-weight: 700; margin-left: 3px;">(${b.percentActive}%)</span>
+                <div style="padding: 6px 8px; background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="font-weight: 600; color: var(--text-main);">${escapeHtml(b.name)}</span>
+                      ${b.isStockLow ? `<span class="badge" style="background: #FEF3C7; color: #92400E; font-size: 0.625rem; padding: 1px 4px;">⚠️ Estoque Baixo</span>` : ''}
                     </div>
+                    <span class="num-tabular" style="color: var(--text-muted);">
+                      <strong style="color: var(--text-main);">${b.active}</strong> / ${b.total} ativas (${b.percentActive}%)
+                    </span>
                   </div>
-                  <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
-                    <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%); border-radius: 999px;"></div>
+
+                  <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden; margin-bottom: 4px;">
+                    <div style="width: ${pct}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
+                  </div>
+
+                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">
+                    <span>${b.virgin} placas virgens disponíveis</span>
+                    <span style="color: ${b.virgin === 0 ? 'var(--text-muted)' : (b.burnRateDaysRemaining <= 10 ? '#DC2626' : 'inherit')}; font-weight: 500;">
+                      ${b.virgin === 0 ? 'Lote 100% Ativado' : `Estoque: ~${b.burnRateDaysRemaining} dias`}
+                    </span>
                   </div>
                 </div>
               `;
@@ -394,35 +457,35 @@ export function renderDashboardView(options = {}) {
         </div>
 
         <!-- Feed de Últimas Ativações Compacto -->
-        <div class="card" style="padding: 1.15rem 1.25rem; border: 1px solid #E2E8F0; border-radius: 14px; background: #FFFFFF; box-shadow: 0 2px 10px rgba(15,23,42,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-            <h3 style="font-size: 0.9rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 6px;">
-              ${getIcon('zap', '', 16)}
+        <div class="card" style="padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 0.8125rem; font-weight: 600; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+              ${getIcon('zap', '', 14)}
               <span>Últimas Placas Ativadas</span>
             </h3>
-            <span class="badge" style="background: rgba(16,185,129,0.1); color: #059669; font-size: 0.65rem; font-weight: 700; padding: 2px 6px;">Ao Vivo</span>
+            <span class="badge badge-active" style="font-family: var(--font-mono);">Ao Vivo</span>
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
             ${metrics.recentActivations.length === 0 ? `
-              <div style="text-align: center; padding: 1.5rem; color: #94A3B8; font-size: 0.8125rem;">
+              <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.75rem;">
                 Nenhuma plaquinha ativada recentemente.
               </div>
             ` : metrics.recentActivations.map(p => {
               const actDate = p.activated_at ? new Date(p.activated_at) : null;
-              const formattedTime = actDate ? `${actDate.toLocaleDateString('pt-BR')} às ${actDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Data não informada';
+              const formattedTime = actDate ? `${actDate.toLocaleDateString('pt-BR')} ${actDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : '';
               return `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;">
-                  <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-                    <span class="badge badge-primary" style="font-weight: 800; font-size: 0.7rem; flex-shrink: 0; padding: 2px 6px;">${escapeHtml(p.id)}</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                  <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                    <span class="td-id" style="font-size: 0.72rem; flex-shrink: 0;">${escapeHtml(p.id)}</span>
                     <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      <div style="font-weight: 700; font-size: 0.8125rem; color: #0F172A; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(p.name || 'Empresa Sem Nome')}</div>
-                      <div style="font-size: 0.7rem; color: #64748B;">Ativado por: <strong style="color: #334155;">${escapeHtml(p.client_name || 'Desconhecido')}</strong></div>
+                      <span style="font-weight: 500; font-size: 0.75rem; color: var(--text-main);">${escapeHtml(p.name || 'Empresa')}</span>
+                      <span style="font-size: 0.6875rem; color: var(--text-muted); margin-left: 4px;">(${escapeHtml(p.client_name || 'Desconhecido')})</span>
                     </div>
                   </div>
                   <div style="text-align: right; flex-shrink: 0; margin-left: 8px;">
-                    <div style="font-size: 0.65rem; color: #94A3B8; font-weight: 600;">${formattedTime}</div>
-                    <div style="font-size: 0.72rem; color: #2563EB; font-weight: 700;">${p.scans_count || 0} scans</div>
+                    <span class="num-tabular" style="font-size: 0.6875rem; color: var(--text-muted);">${formattedTime}</span>
+                    <span class="num-tabular" style="font-size: 0.6875rem; font-weight: 600; color: var(--text-main); margin-left: 6px;">${p.scans_count || 0} scans</span>
                   </div>
                 </div>
               `;
@@ -436,76 +499,61 @@ export function renderDashboardView(options = {}) {
   `;
 }
 
-// Renderizador do Card de Pódio Compacto (1º, 2º e 3º lugares)
+// Renderizador do Card de Pódio
 function renderPodiumCard(client, rank) {
   if (!client) {
     return `
-      <div class="card" style="padding: 1rem; border: 1px dashed #CBD5E1; border-radius: 12px; background: #F8FAFC; text-align: center; color: #94A3B8;">
-        <span style="font-size: 0.75rem;">Posição #${rank} disponível</span>
+      <div class="card" style="padding: 0.75rem; border: 1px dashed var(--border-color); background: var(--bg-subtle); text-align: center; color: var(--text-muted);">
+        <span style="font-size: 0.72rem;">Posição #${rank} disponível</span>
       </div>
     `;
   }
 
   const isFirst = rank === 1;
-  const isSecond = rank === 2;
-  const isThird = rank === 3;
-
-  const medalEmoji = isFirst ? '🥇' : (isSecond ? '🥈' : '🥉');
-  const badgeColor = isFirst 
-    ? 'background: linear-gradient(135deg, #FEF08A 0%, #FACC15 100%); color: #854D0E; border: 1px solid #FDE047;'
-    : (isSecond 
-      ? 'background: linear-gradient(135deg, #F1F5F9 0%, #CBD5E1 100%); color: #334155; border: 1px solid #E2E8F0;'
-      : 'background: linear-gradient(135deg, #FFEDD5 0%, #FDBA74 100%); color: #9A3412; border: 1px solid #FED7AA;');
-
-  const cardBorder = isFirst ? 'border: 1.5px solid #FACC15;' : 'border: 1px solid #E2E8F0;';
-  const cardBg = isFirst ? 'background: linear-gradient(180deg, #FEFCE8 0%, #FFFFFF 100%);' : 'background: #FFFFFF;';
 
   return `
-    <div class="card" style="padding: 1rem 1.15rem; border-radius: 12px; ${cardBorder} ${cardBg} position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,0.02);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="font-size: 1.25rem; line-height: 1;">${medalEmoji}</span>
-          <span style="font-size: 0.6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 5px; ${badgeColor}">
-            ${rank}º Lugar
-          </span>
-        </div>
-        <span style="font-size: 0.7rem; font-weight: 700; color: #64748B;">
+    <div class="card" style="padding: 0.75rem 0.85rem; border-color: ${isFirst ? 'var(--text-main)' : 'var(--border-color)'};">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+        <span class="badge ${isFirst ? 'badge-active' : 'badge-virgin'}" style="font-family: var(--font-mono);">
+          #${rank} Lugar
+        </span>
+        <span class="num-tabular" style="font-size: 0.6875rem; color: var(--text-muted); font-family: var(--font-mono);">
           ${client.percentOfTotalActive}% do total
         </span>
       </div>
 
-      <div style="margin-bottom: 0.75rem;">
-        <h3 style="font-size: 0.95rem; font-weight: 800; color: #0F172A; margin: 0; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(client.name)}">
+      <div style="margin-bottom: 0.55rem;">
+        <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(client.name)}">
           ${escapeHtml(client.name)}
-        </h3>
-        <p style="font-size: 0.75rem; color: #64748B; margin: 2px 0 0 0;">
+        </div>
+        <div style="font-size: 0.6875rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px;">
           ${client.phone ? formatPhone(client.phone) : 'Sem telefone'}
-        </p>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 7px 10px; background: rgba(15,23,42,0.03); border-radius: 8px; margin-bottom: 0.75rem;">
-        <div>
-          <span style="font-size: 0.625rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Ativações</span>
-          <div style="font-size: 1.05rem; font-weight: 800; color: #0F172A; line-height: 1.1; margin-top: 1px;">
-            ${client.activeCount} <span style="font-size: 0.6875rem; font-weight: 600; color: #64748B;">placas</span>
-          </div>
-        </div>
-        <div>
-          <span style="font-size: 0.625rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Scans</span>
-          <div style="font-size: 1.05rem; font-weight: 800; color: #2563EB; line-height: 1.1; margin-top: 1px;">
-            ${client.totalScans} <span style="font-size: 0.6875rem; font-weight: 600; color: #64748B;">leituras</span>
-          </div>
         </div>
       </div>
 
-      <div style="display: flex; gap: 6px;">
-        <a href="#/todas-placas?client=${encodeURIComponent(client.name)}" class="btn btn-outline btn-xs" style="flex: 1; font-weight: 700; font-size: 0.72rem; justify-content: center; padding: 4px 8px; border-radius: 6px;">
-          ${getIcon('grid', '', 12)}
-          <span>Ver Placas</span>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px 8px; background: var(--bg-subtle); border-radius: var(--radius-xs); border: 1px solid var(--border-color); margin-bottom: 0.55rem;">
+        <div>
+          <span style="font-size: 0.5625rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Placas</span>
+          <div class="num-tabular" style="font-size: 0.9375rem; font-weight: 700; color: var(--text-main);">
+            ${client.activeCount}
+          </div>
+        </div>
+        <div>
+          <span style="font-size: 0.5625rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Scans</span>
+          <div class="num-tabular" style="font-size: 0.9375rem; font-weight: 700; color: var(--text-main);">
+            ${client.totalScans}
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 4px;">
+        <a href="#/todas-placas?client=${encodeURIComponent(client.name)}" class="btn btn-secondary btn-xs" style="flex: 1; justify-content: center;">
+          ${getIcon('grid', '', 11)}
+          <span>Placas</span>
         </a>
         ${client.code ? `
-          <a href="#/cliente/${encodeURIComponent(client.code)}" target="_blank" class="btn btn-ghost btn-xs" style="font-weight: 700; font-size: 0.72rem; padding: 4px 6px; border-radius: 6px;" title="Ver Portal do Cliente">
-            ${getIcon('externalLink', '', 12)}
+          <a href="#/cliente/${encodeURIComponent(client.code)}" target="_blank" class="btn btn-ghost btn-xs" title="Portal do Cliente">
+            ${getIcon('externalLink', '', 11)}
           </a>
         ` : ''}
       </div>
@@ -518,7 +566,7 @@ function renderLeaderboardRows(clients) {
   if (!clients || clients.length === 0) {
     return `
       <tr>
-        <td colspan="7" style="text-align: center; padding: 2rem; color: #94A3B8; font-size: 0.8125rem;">
+        <td colspan="7" style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.75rem;">
           Nenhum cliente com placas ativadas até o momento.
         </td>
       </tr>
@@ -528,53 +576,48 @@ function renderLeaderboardRows(clients) {
   const topScore = clients[0].activeCount || 1;
 
   return clients.slice(0, 10).map((c, idx) => {
-    const isTop3 = idx < 3;
-    const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
     const barWidth = Math.max(4, Math.round((c.activeCount / topScore) * 100));
 
     return `
-      <tr style="height: 44px; font-size: 0.8125rem;">
-        <td style="text-align: center; font-weight: 800; font-size: 0.85rem; color: ${isTop3 ? '#0F172A' : '#64748B'}; padding: 6px 10px;">
-          ${medal}
+      <tr>
+        <td style="text-align: center; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">
+          #${idx + 1}
         </td>
-        <td style="padding: 6px 10px;">
-          <div style="font-weight: 700; color: #0F172A; line-height: 1.2;">
+        <td>
+          <div style="font-weight: 600; color: var(--text-main);">
             ${escapeHtml(c.name)}
           </div>
-          <div style="font-size: 0.6875rem; color: #94A3B8;">
-            ${c.code ? `Código: <span style="font-family: monospace; font-weight: 700;">${escapeHtml(c.code)}</span>` : 'Sem código único'}
-          </div>
+          ${c.code ? `<div style="font-size: 0.625rem; color: var(--text-muted); font-family: var(--font-mono);">ID: ${escapeHtml(c.code)}</div>` : ''}
         </td>
-        <td style="padding: 6px 10px;">
-          <span style="font-size: 0.75rem; color: #334155; font-weight: 600;">
-            ${c.phone ? formatPhone(c.phone) : '<span style="color: #94A3B8;">Não informado</span>'}
+        <td>
+          <span style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap;">
+            ${c.phone ? formatPhone(c.phone) : '—'}
           </span>
         </td>
-        <td style="padding: 6px 10px;">
+        <td>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="flex: 1; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
-              <div style="width: ${barWidth}%; height: 100%; background: ${idx === 0 ? '#EAB308' : (idx === 1 ? '#94A3B8' : (idx === 2 ? '#F97316' : '#2563EB'))}; border-radius: 999px;"></div>
+            <div style="flex: 1; height: 4px; background: var(--bg-subtle); border-radius: 999px; overflow: hidden;">
+              <div style="width: ${barWidth}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
             </div>
-            <span style="font-size: 0.65rem; font-weight: 700; color: #64748B; width: 32px; text-align: right;">${c.percentOfTotalActive}%</span>
+            <span class="num-tabular" style="font-size: 0.625rem; font-family: var(--font-mono); color: var(--text-muted); width: 28px; text-align: right;">${c.percentOfTotalActive}%</span>
           </div>
         </td>
-        <td style="text-align: center; padding: 6px 10px;">
-          <span class="badge" style="background: rgba(16,185,129,0.1); color: #059669; font-weight: 800; font-size: 0.75rem; padding: 2px 7px;">
+        <td style="text-align: center;">
+          <span class="badge badge-active num-tabular">
             ${c.activeCount}
           </span>
         </td>
-        <td style="text-align: center; font-weight: 700; font-size: 0.78rem; color: #2563EB; padding: 6px 10px;">
+        <td style="text-align: center;" class="num-tabular">
           ${c.totalScans}
         </td>
-        <td style="text-align: right; padding: 6px 10px;">
-          <div style="display: inline-flex; gap: 4px;">
-            <a href="#/todas-placas?client=${encodeURIComponent(c.name)}" class="btn btn-outline btn-xs" style="font-weight: 700; font-size: 0.7rem; padding: 3px 6px; border-radius: 5px;" title="Ver Placas">
-              ${getIcon('grid', '', 12)}
-              <span>Placas</span>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; gap: 3px;">
+            <a href="#/todas-placas?client=${encodeURIComponent(c.name)}" class="btn btn-secondary btn-xs" title="Ver Placas">
+              ${getIcon('grid', '', 11)}
             </a>
             ${c.code ? `
-              <a href="#/cliente/${encodeURIComponent(c.code)}" target="_blank" class="btn btn-ghost btn-xs" style="padding: 3px 5px; border-radius: 5px;" title="Portal do Cliente">
-                ${getIcon('externalLink', '', 12)}
+              <a href="#/cliente/${encodeURIComponent(c.code)}" target="_blank" class="btn btn-ghost btn-xs" title="Portal do Cliente">
+                ${getIcon('externalLink', '', 11)}
               </a>
             ` : ''}
           </div>
@@ -584,35 +627,117 @@ function renderLeaderboardRows(clients) {
   }).join('');
 }
 
+// Renderizador das Linhas do Radar de Saúde & Detector de Churn
+function renderRadarRows(matrix) {
+  if (!matrix) return '';
+  // Quem precisa de atenção primeiro: Em Risco (nunca lidas e as paradas há
+  // mais tempo no topo), depois o resto.
+  const atRiskFirst = (matrix.atRisk || []).slice().sort((a, b) => {
+    const da = a.daysSinceScan === null ? Infinity : a.daysSinceScan;
+    const db = b.daysSinceScan === null ? Infinity : b.daysSinceScan;
+    return db - da;
+  });
+  const allClients = [
+    ...atRiskFirst,
+    ...(matrix.stable || []),
+    ...(matrix.accelerating || []),
+    ...(matrix.power || [])
+  ];
+
+  if (allClients.length === 0) {
+    return `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.75rem;">
+          Nenhum cliente cadastrado no momento.
+        </td>
+      </tr>
+    `;
+  }
+
+  const categoryLabels = {
+    power: { label: '🚀 Campeão', bg: '#ECFDF5', color: '#047857' },
+    accelerating: { label: '📈 Acelerando', bg: '#EFF6FF', color: '#1D4ED8' },
+    stable: { label: '⏸️ Estável', bg: '#F3F4F6', color: '#374151' },
+    atRisk: { label: '⚠️ Em Risco', bg: '#FEF2F2', color: '#DC2626' }
+  };
+
+  return allClients.map(c => {
+    const cat = categoryLabels[c.category] || categoryLabels.stable;
+    let lastScanLabel = 'Sem leituras ainda';
+    if (c.daysSinceScan !== null) {
+      if (c.daysSinceScan === 0) lastScanLabel = 'Hoje';
+      else if (c.daysSinceScan === 1) lastScanLabel = 'Ontem';
+      else lastScanLabel = `há ${c.daysSinceScan} dias`;
+    }
+
+    return `
+      <tr class="radar-client-row" data-category="${c.category}">
+        <td>
+          <div style="font-weight: 600; color: var(--text-main); font-size: 0.75rem;">
+            ${escapeHtml(c.name)}
+          </div>
+          <div style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap;">
+            ${c.phone ? formatPhone(c.phone) : (c.code ? `Cód: ${escapeHtml(c.code)}` : 'Sem contato')}
+          </div>
+        </td>
+        <td>
+          <span class="badge" style="background: ${cat.bg}; color: ${cat.color}; font-size: 0.65rem; font-weight: 600;">
+            ${cat.label}
+          </span>
+        </td>
+        <td style="text-align: center;" class="num-tabular font-mono">
+          ${c.activeCount}
+        </td>
+        <td style="text-align: center;" class="num-tabular font-mono">
+          ${c.totalScans}
+        </td>
+        <td class="font-mono text-xs" style="color: ${c.category === 'atRisk' ? '#DC2626' : 'var(--text-muted)'}; font-size: 0.6875rem;">
+          ${lastScanLabel}
+        </td>
+        <td style="text-align: right;">
+          ${c.whatsappUrl ? `
+            <a href="${c.whatsappUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-xs" style="background: #059669; color: #FFFFFF; border: none; font-size: 0.65rem; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; text-decoration: none;" title="Abrir conversa pré-formatada no WhatsApp">
+              ${getIcon('phone', '', 11)}
+              <span>${c.category === 'atRisk' ? 'Apoio WhatsApp' : (c.category === 'power' ? 'Upsell WhatsApp' : 'Contatar')}</span>
+            </a>
+          ` : `
+            <span style="font-size: 0.65rem; color: var(--text-muted);">Sem WhatsApp</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
 // Renderizador do Gráfico SVG de Linha do Tempo Compacto
 function renderTimelineSvgChart(timeline, maxVal, activeSeries) {
   const width = 720;
-  const height = 180;
-  const paddingLeft = 40;
-  const paddingRight = 15;
-  const paddingTop = 20;
-  const paddingBottom = 32;
+  const height = 160;
+  const paddingLeft = 32;
+  const paddingRight = 12;
+  const paddingTop = 16;
+  const paddingBottom = 26;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
   const count = timeline.length;
   const colWidth = chartWidth / count;
 
-  // Grid horizontal com 4 linhas
-  const gridLines = [0, 0.33, 0.66, 1];
+  // Grid horizontal com 3 linhas
+  const gridLines = [0, 0.5, 1];
   const gridHtml = gridLines.map(ratio => {
     const y = paddingTop + chartHeight * (1 - ratio);
     const labelVal = Math.round(maxVal * ratio);
     return `
-      <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#E2E8F0" stroke-dasharray="3,3" stroke-width="1" />
-      <text x="${paddingLeft - 6}" y="${y + 3.5}" fill="#94A3B8" font-size="9.5" font-weight="600" text-anchor="end" font-family="Montserrat, sans-serif">${labelVal}</text>
+      <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#E5E7EB" stroke-width="1" />
+      <text x="${paddingLeft - 6}" y="${y + 3}" fill="#9CA3AF" font-size="9" font-weight="500" text-anchor="end" font-family="'JetBrains Mono', monospace">${labelVal}</text>
     `;
   }).join('');
 
-  // Barras / Séries Compactas
+  // Barras / Séries Minimalistas
   const barsHtml = timeline.map((item, i) => {
     const x = paddingLeft + i * colWidth;
-    const barWidth = Math.max(12, colWidth * 0.40);
+    const barWidth = Math.max(10, colWidth * 0.35);
 
     const scansHeight = (item.scans / maxVal) * chartHeight;
     const actHeight = (item.activations / maxVal) * chartHeight;
@@ -625,65 +750,46 @@ function renderTimelineSvgChart(timeline, maxVal, activeSeries) {
     if (activeSeries === 'scans') {
       const centerX = x + (colWidth - barWidth) / 2;
       barsContent = `
-        <rect x="${centerX}" y="${scansY}" width="${barWidth}" height="${scansHeight}" rx="3" fill="url(#blueBarGrad)" class="chart-bar" />
+        <rect x="${centerX}" y="${scansY}" width="${barWidth}" height="${scansHeight}" rx="2" fill="#0F172A" />
       `;
     } else if (activeSeries === 'activations') {
       const centerX = x + (colWidth - barWidth) / 2;
       barsContent = `
-        <rect x="${centerX}" y="${actY}" width="${barWidth}" height="${actHeight}" rx="3" fill="url(#greenBarGrad)" class="chart-bar" />
+        <rect x="${centerX}" y="${actY}" width="${barWidth}" height="${actHeight}" rx="2" fill="#059669" />
       `;
     } else {
       // Ambos lado a lado
-      const halfWidth = (barWidth / 2) + 1;
+      const halfWidth = (barWidth / 2);
       const x1 = x + (colWidth / 2) - halfWidth - 1;
       const x2 = x + (colWidth / 2) + 1;
 
       barsContent = `
-        <rect x="${x1}" y="${scansY}" width="${halfWidth}" height="${scansHeight}" rx="2.5" fill="url(#blueBarGrad)" class="chart-bar" />
-        <rect x="${x2}" y="${actY}" width="${halfWidth}" height="${actHeight}" rx="2.5" fill="url(#greenBarGrad)" class="chart-bar" />
+        <rect x="${x1}" y="${scansY}" width="${halfWidth}" height="${scansHeight}" rx="1.5" fill="#0F172A" />
+        <rect x="${x2}" y="${actY}" width="${halfWidth}" height="${actHeight}" rx="1.5" fill="#059669" />
       `;
     }
 
-    // Label no eixo X
     const labelX = x + colWidth / 2;
-    const labelY = height - 10;
+    const labelY = height - 8;
     const isToday = item.isToday;
 
     return `
       <g class="chart-col-group" style="cursor: pointer;">
-        <!-- Área transparente para capturar hover com tooltip nativo SVG -->
         <rect x="${x}" y="${paddingTop}" width="${colWidth}" height="${chartHeight}" fill="transparent">
-          <title>${item.label}: ${item.scans} leituras | ${item.activations} ativações</title>
+          <title>${item.label}: ${item.noHistory ? 'sem histórico detalhado' : `${item.scans} leituras`} | ${item.activations} ativações</title>
         </rect>
         ${barsContent}
-        <text x="${labelX}" y="${labelY}" fill="${isToday ? '#2563EB' : '#64748B'}" font-size="9.5" font-weight="${isToday ? '800' : '600'}" text-anchor="middle" font-family="Montserrat, sans-serif">
+        <text x="${labelX}" y="${labelY}" fill="${isToday ? '#0F172A' : '#6B7280'}" font-size="9" font-weight="${isToday ? '700' : '500'}" text-anchor="middle" font-family="'JetBrains Mono', monospace">
           ${item.shortLabel}
         </text>
-        ${isToday ? `<circle cx="${labelX}" cy="${labelY + 6}" r="1.5" fill="#2563EB" />` : ''}
       </g>
     `;
   }).join('');
 
   return `
-    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow: visible; font-family: Montserrat, sans-serif;">
-      <defs>
-        <linearGradient id="blueBarGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3B82F6" />
-          <stop offset="100%" stop-color="#1D4ED8" />
-        </linearGradient>
-        <linearGradient id="greenBarGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#34D399" />
-          <stop offset="100%" stop-color="#059669" />
-        </linearGradient>
-      </defs>
-      
-      <!-- Linhas do Grid -->
+    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow: visible;">
       ${gridHtml}
-
-      <!-- Eixo X Base -->
-      <line x1="${paddingLeft}" y1="${paddingTop + chartHeight}" x2="${width - paddingRight}" y2="${paddingTop + chartHeight}" stroke="#CBD5E1" stroke-width="1.2" />
-
-      <!-- Barras -->
+      <line x1="${paddingLeft}" y1="${paddingTop + chartHeight}" x2="${width - paddingRight}" y2="${paddingTop + chartHeight}" stroke="#E5E7EB" stroke-width="1" />
       ${barsHtml}
     </svg>
   `;

@@ -10,7 +10,9 @@ export function renderBatchFoldersView({
   const stats = storage.getStats();
 
   // 1. Filtragem por busca
-  let filtered = allBatches;
+  // Cópia: getBatches() devolve o array em cache, e o sort abaixo o
+  // reordenaria permanentemente ("Mais Recentes" nunca voltaria ao normal).
+  let filtered = allBatches.slice();
   if (searchQuery.trim()) {
     const q = normalizeForSearch(searchQuery);
     filtered = filtered.filter(b =>
@@ -31,57 +33,64 @@ export function renderBatchFoldersView({
     } else if (sortBy === 'name') {
       return a.name.localeCompare(b.name);
     }
-    // 'recent' padrão (mantém a ordem mais recente)
     return 0;
   });
 
   const hasActiveFilters = searchQuery.trim() !== '' || sortBy !== 'recent';
 
   return `
-    <div class="container py-8">
+    <div class="container py-6">
       
-      <!-- Cabeçalho Principal -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <!-- Cabeçalho Principal Workstation -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
         <div>
-          <h1 style="font-size: 1.5rem; display: flex; align-items: center; gap: 8px;">
-            ${getIcon('folder', '', 24)}
-            <span>Pastas de Lotes</span>
-          </h1>
-          <p class="text-sm text-muted mt-1">Organize e gerencie seus QR Codes separados por pasta de emissão ou cliente.</p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('folder', '', 15)}
+            </div>
+            <div>
+              <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+                Pastas de Lotes
+              </h1>
+              <p style="font-size: 0.72rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                Organização fabril de QR Codes por remessas e pacotes de impressão
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div style="display: flex; gap: 8px;">
-          <a href="#/todas-placas" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('grid', '', 14)}
-            <span>Ver Todas as Placas (${stats.total})</span>
+        <div style="display: flex; gap: 6px;">
+          <a href="#/todas-placas" class="btn btn-secondary btn-sm" style="gap: 5px;">
+            ${getIcon('grid', '', 13)}
+            <span>Inventário Geral (${stats.total})</span>
           </a>
-          <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('plus', '', 14)}
+          <a href="#/gerador" class="btn btn-primary btn-sm" style="gap: 5px;">
+            ${getIcon('plus', '', 13)}
             <span>Emitir Novo Lote</span>
           </a>
         </div>
       </div>
 
-      <!-- Resumo do Sistema -->
-      <div class="grid grid-cols-4 gap-4 mb-6">
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Pastas de Lotes</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px;">${allBatches.length}</div>
+      <!-- Resumo do Sistema em KPIs Compactos -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Pastas de Lotes</div>
+          <div class="num-tabular" style="font-size: 1.35rem; font-weight: 700; margin-top: 2px; color: var(--text-main);">${allBatches.length}</div>
         </div>
 
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Total de QR Codes</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px;">${stats.total}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Total Produzido</div>
+          <div class="num-tabular" style="font-size: 1.35rem; font-weight: 700; margin-top: 2px; color: var(--text-main);">${stats.total}</div>
         </div>
 
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Plaquinhas Ativas</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--green);">${stats.active}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Placas em Atividade</div>
+          <div class="num-tabular" style="font-size: 1.35rem; font-weight: 700; margin-top: 2px; color: #059669;">${stats.active}</div>
         </div>
 
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Total de Leituras</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--blue);">${stats.totalScans}</div>
+        <div class="card" style="padding: 0.75rem 1rem;">
+          <div style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Telemetria (Scans)</div>
+          <div class="num-tabular" style="font-size: 1.35rem; font-weight: 700; margin-top: 2px; color: var(--text-main);">${stats.totalScans.toLocaleString('pt-BR')}</div>
         </div>
       </div>
 
@@ -90,37 +99,37 @@ export function renderBatchFoldersView({
         <div class="filter-bar">
           
           <div class="filter-group">
-            <label for="select-sort-batches" class="text-xs text-muted font-medium">Ordenar por:</label>
+            <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">Ordenar por:</span>
             <select id="select-sort-batches" class="filter-select">
               <option value="recent" ${sortBy === 'recent' ? 'selected' : ''}>Mais Recentes</option>
               <option value="count" ${sortBy === 'count' ? 'selected' : ''}>Maior Capacidade</option>
-              <option value="active" ${sortBy === 'active' ? 'selected' : ''}>Maior Taxa de Ativação</option>
+              <option value="active" ${sortBy === 'active' ? 'selected' : ''}>Taxa de Ativação</option>
               <option value="name" ${sortBy === 'name' ? 'selected' : ''}>Nome da Pasta (A–Z)</option>
             </select>
 
             ${hasActiveFilters ? `
-              <button id="btn-clear-batch-filters" class="btn btn-ghost btn-sm text-xs" style="color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;" title="Limpar filtros">
-                ${getIcon('xCircle', '', 13)}
-                <span>Limpar Filtros</span>
+              <button id="btn-clear-batch-filters" class="btn btn-ghost btn-xs" style="gap: 3px;" title="Limpar filtros">
+                ${getIcon('xCircle', '', 12)}
+                <span>Limpar</span>
               </button>
             ` : ''}
           </div>
 
-          <div style="width: 260px; max-width: 100%; position: relative;">
+          <div style="width: 240px; max-width: 100%; position: relative;">
             <input 
               type="text" 
               id="input-search-batches" 
-              placeholder="Buscar pasta de lote..." 
+              placeholder="Buscar pasta..." 
               value="${escapeHtml(searchQuery)}"
               class="form-input" 
-              style="padding: 6px 30px 6px 30px; font-size: 0.8125rem;"
+              style="padding: 4px 26px 4px 28px; font-size: 0.75rem; height: 30px;"
             />
-            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
-              ${getIcon('search', '', 14)}
+            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
+              ${getIcon('search', '', 13)}
             </span>
             ${searchQuery ? `
-              <button id="btn-clear-batch-search" class="btn-ghost" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar busca">
-                ${getIcon('close', '', 12)}
+              <button id="btn-clear-batch-search" class="btn-ghost" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar busca">
+                ${getIcon('close', '', 11)}
               </button>
             ` : ''}
           </div>
@@ -131,84 +140,85 @@ export function renderBatchFoldersView({
       <!-- Grid de Pastas de Lotes -->
       ${allBatches.length === 0 ? `
         <div class="card p-12 text-center" style="color: var(--text-muted);">
-          <div style="width: 56px; height: 56px; background: var(--bg-subtle); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: var(--text-muted);">
-            ${getIcon('folder', '', 28)}
+          <div style="width: 44px; height: 44px; background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem; color: var(--text-muted);">
+            ${getIcon('folder', '', 22)}
           </div>
-          <h3 style="font-size: 1.125rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem;">Nenhuma pasta de lote criada ainda</h3>
-          <p class="text-sm text-muted mb-4">Emita seu primeiro lote de QR Codes para criar uma pasta organizada.</p>
-          <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('plus', '', 14)}
-            <span>Criar Primeiro Lote</span>
+          <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">Nenhum lote criado ainda</h3>
+          <p class="text-xs text-muted mb-4">Emita seu primeiro lote de QR Codes para organizar o estoque.</p>
+          <a href="#/gerador" class="btn btn-primary btn-sm" style="gap: 5px;">
+            ${getIcon('plus', '', 13)}
+            <span>Emitir Primeiro Lote</span>
           </a>
         </div>
       ` : filtered.length === 0 ? `
         <div class="card p-8 text-center" style="color: var(--text-muted);">
-          <p class="text-sm">Nenhuma pasta de lote encontrada para "${escapeHtml(searchQuery)}".</p>
-          <button id="btn-reset-batch-search-inline" class="text-blue underline font-medium mt-2" style="background:none; border:none; cursor:pointer;">Limpar busca</button>
+          <p class="text-xs">Nenhum lote localizado para "${escapeHtml(searchQuery)}".</p>
+          <button id="btn-reset-batch-search-inline" class="text-xs text-main font-medium mt-2" style="background:none; border:none; cursor:pointer; text-decoration: underline;">Limpar busca</button>
         </div>
       ` : `
-        <div class="grid grid-cols-3 gap-4">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0.75rem;">
           ${filtered.map(batch => {
             const activePercent = batch.count > 0 ? Math.round((batch.active / batch.count) * 100) : 0;
             const encodedName = encodeURIComponent(batch.name);
 
             return `
-              <div class="card p-5" style="display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--border-color);">
+              <div class="card card-hover" style="padding: 0.95rem 1.05rem; display: flex; flex-direction: column; justify-content: space-between;">
                 
                 <div>
                   <!-- Topo do Card de Pasta -->
-                  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="background: #EEF2FF; border: 1px solid #E0E7FF; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #4F46E5;">
-                        ${getIcon('folder', '', 22)}
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.65rem;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <div style="background: var(--bg-subtle); border: 1px solid var(--border-color); width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--text-main);">
+                        ${getIcon('folder', '', 16)}
                       </div>
                       <div>
-                        <a href="#/lote/${encodedName}" style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); display: block; text-decoration: none;" class="hover:text-blue">
+                        <a href="#/lote/${encodedName}" style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); display: block; text-decoration: none;">
                           ${escapeHtml(batch.name)}
                         </a>
-                        <span class="text-xs text-muted font-mono">${escapeHtml(batch.firstId)} ... ${escapeHtml(batch.lastId)}</span>
+                        <span class="td-id" style="font-size: 0.6875rem; color: var(--text-muted);">${escapeHtml(batch.firstId)} ... ${escapeHtml(batch.lastId)}</span>
                       </div>
                     </div>
                   </div>
 
                   <!-- Métricas da Pasta -->
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.8125rem;">
-                    <span class="text-muted">Capacidade:</span>
-                    <span class="font-bold">${batch.count} plaquinhas</span>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; font-size: 0.75rem;">
+                    <span style="color: var(--text-muted);">Capacidade:</span>
+                    <span class="num-tabular" style="font-weight: 600; color: var(--text-main);">${batch.count} un</span>
                   </div>
 
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.8125rem;">
-                    <span class="text-muted">Status:</span>
-                    <span class="font-medium">
-                      <span style="color: var(--green);">${batch.active} ativas</span> / 
-                      <span style="color: var(--amber);">${batch.virgin} virgens</span>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem; font-size: 0.75rem;">
+                    <span style="color: var(--text-muted);">Status:</span>
+                    <span class="num-tabular" style="font-size: 0.72rem;">
+                      <span style="color: #059669; font-weight: 600;">${batch.active} ativas</span>
+                      <span style="color: var(--text-muted); margin: 0 3px;">•</span>
+                      <span style="color: var(--text-muted);">${batch.virgin} virgens</span>
                     </span>
                   </div>
 
                   <!-- Barra de Progresso de Ativação -->
-                  <div style="margin-bottom: 1rem;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">
+                  <div style="margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.6875rem; color: var(--text-muted); margin-bottom: 3px; font-family: var(--font-mono);">
                       <span>Taxa de Ativação</span>
-                      <span class="font-bold">${activePercent}%</span>
+                      <span class="num-tabular" style="font-weight: 600; color: var(--text-main);">${activePercent}%</span>
                     </div>
-                    <div style="background: #F1F5F9; height: 6px; border-radius: 999px; overflow: hidden;">
-                      <div style="background: var(--green); height: 100%; width: ${activePercent}%; border-radius: 999px;"></div>
+                    <div style="background: var(--bg-subtle); height: 4px; border-radius: 999px; overflow: hidden; border: 1px solid var(--border-color);">
+                      <div style="background: #0F172A; height: 100%; width: ${activePercent}%; border-radius: 999px;"></div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Ações da Pasta -->
-                <div style="display: flex; gap: 6px; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); align-items: center;">
-                  <a href="#/lote/${encodedName}" class="btn btn-primary btn-sm flex-1" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    <span>Abrir Pasta</span>
-                    ${getIcon('arrowRight', '', 14)}
+                <div style="display: flex; gap: 5px; margin-top: 0.5rem; padding-top: 0.65rem; border-top: 1px solid var(--border-color); align-items: center;">
+                  <a href="#/lote/${encodedName}" class="btn btn-primary btn-xs flex-1" style="gap: 4px;">
+                    <span>Abrir Lote</span>
+                    ${getIcon('arrowRight', '', 12)}
                   </a>
-                  <button class="btn btn-secondary btn-sm btn-download-batch-zip" data-batch="${escapeHtml(batch.name)}" title="Baixar ZIP exclusivo deste lote" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px;">
-                    ${getIcon('download', '', 14)}
+                  <button class="btn btn-secondary btn-xs btn-download-batch-zip" data-batch="${escapeHtml(batch.name)}" title="Baixar ZIP deste lote" style="gap: 3px;">
+                    ${getIcon('download', '', 11)}
                     <span>ZIP</span>
                   </button>
-                  <button class="btn btn-ghost btn-sm btn-delete-batch-action" data-batch="${escapeHtml(batch.name)}" title="Excluir este lote" style="color: #DC2626; padding: 4px 6px;">
-                    ${getIcon('trash', '', 14)}
+                  <button class="btn btn-ghost btn-xs btn-delete-batch-action" data-batch="${escapeHtml(batch.name)}" title="Excluir este lote" style="color: #DC2626; padding: 3px 5px;">
+                    ${getIcon('trash', '', 12)}
                   </button>
                 </div>
 
@@ -221,4 +231,3 @@ export function renderBatchFoldersView({
     </div>
   `;
 }
-

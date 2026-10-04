@@ -1,56 +1,60 @@
 import { getIcon } from '../utils/icons.js';
+import { getEnvLabel } from '../utils/helpers.js';
 
 export function renderAdminLoginView() {
   return `
-    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0F172A; padding: 1.5rem 1rem;">
-      <div class="card p-8" style="max-width: 420px; width: 100%; background: #1E293B; border: 1px solid #334155; color: #F8FAFC; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #090D16; padding: 1.5rem 1rem;">
+      <div class="card" style="max-width: 380px; width: 100%; background: #0F1420; border: 1px solid rgba(255, 255, 255, 0.08); color: #F3F4F6; padding: 2rem; box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);">
         
-        <!-- Topo com Logo -->
+        <!-- Topo com Logo Minimalista -->
         <div class="text-center mb-6">
-          <img src="/logo.png" alt="Rei do NFC" style="height: 84px; width: 84px; object-fit: contain; margin: 0 auto 12px; filter: drop-shadow(0 8px 24px rgba(37, 99, 235, 0.45));" />
-          <h1 style="font-size: 1.5rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em;">REI DO NFC</h1>
-          <p style="font-size: 0.8125rem; color: #94A3B8; margin-top: 4px;">Painel de Gestão de Placas QR Code</p>
+          <img src="/logo.png" alt="Rei do NFC" style="height: 52px; width: 52px; object-fit: contain; margin: 0 auto 10px;" />
+          <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <h1 style="font-size: 1.125rem; font-weight: 700; color: #FFFFFF; letter-spacing: -0.02em;">REI DO NFC</h1>
+            <span class="sidebar-brand-badge">${getEnvLabel()}</span>
+          </div>
+          <p style="font-size: 0.72rem; color: #94A3B8; font-family: var(--font-mono); margin-top: 3px;">Painel de Gestão e Fábrica</p>
         </div>
 
         <!-- Formulário de Login do Dono -->
         <form id="form-admin-login">
           
           <div class="form-group mb-3">
-            <label class="form-label" for="admin-login-username" style="color: #E2E8F0; font-size: 0.8125rem;">Usuário</label>
+            <label class="form-label" for="admin-login-username" style="color: #CBD5E1; font-size: 0.75rem;">Usuário</label>
             <input 
               type="text" 
               id="admin-login-username" 
               class="form-input font-mono" 
-              placeholder="Digite seu usuário" 
-              style="background: #0F172A; border-color: #334155; color: #FFFFFF; padding: 0.625rem 0.875rem;" 
+              placeholder="Nome de usuário" 
+              style="background: #090D16; border-color: rgba(255, 255, 255, 0.12); color: #FFFFFF; padding: 0.5rem 0.75rem; font-size: 0.8125rem;" 
               required 
               autofocus 
             />
           </div>
 
           <div class="form-group mb-4">
-            <label class="form-label" for="admin-login-password" style="color: #E2E8F0; font-size: 0.8125rem;">Senha</label>
+            <label class="form-label" for="admin-login-password" style="color: #CBD5E1; font-size: 0.75rem;">Senha</label>
             <input 
               type="password" 
               id="admin-login-password" 
               class="form-input font-mono" 
               placeholder="••••••••" 
-              style="background: #0F172A; border-color: #334155; color: #FFFFFF; padding: 0.625rem 0.875rem;" 
+              style="background: #090D16; border-color: rgba(255, 255, 255, 0.12); color: #FFFFFF; padding: 0.5rem 0.75rem; font-size: 0.8125rem;" 
               required 
             />
-            <div id="admin-login-error" class="text-xs hidden" style="color: #F87171; margin-top: 6px;"></div>
+            <div id="admin-login-error" class="text-xs hidden" style="color: #F87171; margin-top: 5px; font-family: var(--font-mono);"></div>
           </div>
 
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #94A3B8; cursor: pointer;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #94A3B8; cursor: pointer;">
               <input type="checkbox" id="admin-remember-me" checked style="accent-color: #2563EB; cursor: pointer;" />
               <span>Manter conectado neste navegador</span>
             </label>
           </div>
 
-          <button type="submit" id="btn-submit-admin-login" class="btn btn-primary w-full" style="padding: 0.625rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>Entrar no Painel</span>
-            ${getIcon('arrowRight', '', 16)}
+          <button type="submit" id="btn-submit-admin-login" class="btn btn-primary w-full" style="background: #FFFFFF; color: #090D16; border-color: #FFFFFF; padding: 0.55rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>Acessar Painel</span>
+            ${getIcon('arrowRight', '', 14)}
           </button>
 
         </form>
@@ -59,4 +63,3 @@ export function renderAdminLoginView() {
     </div>
   `;
 }
-

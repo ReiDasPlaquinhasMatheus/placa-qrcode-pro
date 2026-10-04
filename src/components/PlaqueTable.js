@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { formatRelativeTime, escapeHtml, normalizeForSearch } from '../utils/helpers.js';
+import { formatRelativeTime, escapeHtml, normalizeForSearch, toLocalDateKey } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 import { renderPagination } from './Pagination.js';
 
@@ -21,17 +21,17 @@ export function renderPlaqueTable({
   let active = 0;
   let virgin = 0;
   let totalScans = 0;
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateKey(new Date());
   let todayCount = 0;
   const filtered = [];
 
   const q = searchQuery ? normalizeForSearch(searchQuery) : '';
   const filterByLote = (!isSpecificBatch && batchName && batchName !== 'all') ? batchName : null;
 
-  // Filtragem e Métricas em Passada Única Ultra Rápida (O(N))
+  // Filtragem e Métricas
   for (let i = 0; i < total; i++) {
     const p = basePlaques[i];
-    const isToday = Boolean(p.activated_at && p.activated_at.startsWith(todayStr));
+    const isToday = Boolean(p.activated_at && toLocalDateKey(p.activated_at) === todayStr);
     if (isToday) todayCount++;
 
     if (p.status === 'active') active++;
@@ -44,7 +44,11 @@ export function renderPlaqueTable({
     if (currentFilter === 'today' && !isToday) continue;
 
     // 2. Filtro por Lote
-    if (filterByLote && p.batch_name !== filterByLote) continue;
+    // Mesma regra do getBatches(): placa sem lote pertence a "Lote Geral"
+    if (filterByLote) {
+      const pBatch = (p.batch_name && p.batch_name.trim()) ? p.batch_name.trim() : 'Lote Geral';
+      if (pBatch !== filterByLote) continue;
+    }
 
     // 3. Filtro por Vínculo de Cliente
     if (clientFilter === 'with_client' && !p.client_name && !p.client_phone && !p.client_code) continue;
@@ -65,7 +69,7 @@ export function renderPlaqueTable({
     filtered.push(p);
   }
 
-  // Ordenação Otimizada
+  // Ordenação
   filtered.sort((a, b) => {
     let comparison = 0;
     if (sortBy === 'scans_count') {
@@ -83,7 +87,6 @@ export function renderPlaqueTable({
       comparison = a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
       return sortOrder === 'desc' ? -comparison : comparison;
     } else {
-      // created_at padrão
       const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
       comparison = timeB - timeA;
@@ -91,13 +94,11 @@ export function renderPlaqueTable({
     }
   });
 
-  // Paginação dos Resultados
   const totalFiltered = filtered.length;
   const totalPages = Math.ceil(totalFiltered / perPage) || 1;
   const validPage = Math.max(1, Math.min(currentPage, totalPages));
   const paginatedPlaques = filtered.slice((validPage - 1) * perPage, validPage * perPage);
 
-  // Verificação se há algum filtro ativo para exibir botão "Limpar Filtros"
   const hasActiveFilters = currentFilter !== 'all' || 
     searchQuery.trim() !== '' || 
     clientFilter !== 'all' || 
@@ -105,91 +106,100 @@ export function renderPlaqueTable({
     sortBy !== 'created_at';
 
   return `
-    <div class="container py-8">
+    <div class="container py-6">
       
-      <!-- Topo com Navegação / Título e Ações -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <!-- Topo Workstation -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
         <div>
           ${isSpecificBatch ? `
-            <a href="#/lotes" class="text-xs text-muted mb-2 inline-flex items-center hover:text-blue" style="gap: 4px;">
-              ${getIcon('arrowleft', '', 12)}
-              <span>Voltar para Pastas de Lotes</span>
+            <a href="#/lotes" class="btn btn-ghost btn-xs mb-1" style="gap: 4px; padding: 2px 4px; color: var(--text-muted);">
+              ${getIcon('arrowleft', '', 11)}
+              <span>Voltar para Pastas</span>
             </a>
-            <h1 style="font-size: 1.5rem; display: flex; align-items: center; gap: 8px;">
-              ${getIcon('folder', '', 24)}
-              <span>${escapeHtml(batchName)}</span>
-            </h1>
-            <p class="text-sm text-muted mt-1">Gerencie exclusivamente os QR Codes desta pasta de lote.</p>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+                ${escapeHtml(batchName)}
+              </h1>
+              <span class="badge badge-virgin num-tabular">${total} placas</span>
+            </div>
           ` : `
-            <h1 style="font-size: 1.5rem; display: flex; align-items: center; gap: 8px;">
-              ${getIcon('grid', '', 24)}
-              <span>Todas as Placas Cadastradas</span>
-            </h1>
-            <p class="text-sm text-muted mt-1">Listagem geral de todas as plaquinhas registradas no sistema.</p>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; justify-content: center;">
+                ${getIcon('grid', '', 14)}
+              </div>
+              <div>
+                <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+                  Inventário de Placas
+                </h1>
+                <p style="font-size: 0.72rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                  Catálogo geral com estado de ativação, PIN e telemetria de scans
+                </p>
+              </div>
+            </div>
           `}
         </div>
 
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="btn-export-csv" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('filetext', '', 14)}
-            <span>Exportar CSV (${total})</span>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button id="btn-export-csv" class="btn btn-secondary btn-sm" style="gap: 4px;">
+            ${getIcon('filetext', '', 13)}
+            <span>Exportar CSV</span>
           </button>
           ${isSpecificBatch ? `
-            <button class="btn btn-secondary btn-sm btn-download-batch-zip" data-batch="${escapeHtml(batchName)}" style="display: inline-flex; align-items: center; gap: 6px;">
-              ${getIcon('download', '', 14)}
-              <span>Baixar Lote ZIP</span>
+            <button class="btn btn-secondary btn-sm btn-download-batch-zip" data-batch="${escapeHtml(batchName)}" style="gap: 4px;">
+              ${getIcon('download', '', 13)}
+              <span>Baixar ZIP</span>
             </button>
-            <button class="btn btn-secondary btn-sm btn-delete-batch-action" data-batch="${escapeHtml(batchName)}" style="display: inline-flex; align-items: center; gap: 6px; color: #DC2626; border-color: #FECACA;" title="Excluir este lote e suas plaquinhas">
-              ${getIcon('trash', '', 14)}
-              <span>Excluir Lote</span>
+            <button class="btn btn-secondary btn-sm btn-delete-batch-action" data-batch="${escapeHtml(batchName)}" style="gap: 4px; color: #DC2626;" title="Excluir este lote">
+              ${getIcon('trash', '', 13)}
+              <span>Excluir</span>
             </button>
-            <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-              ${getIcon('plus', '', 14)}
+            <a href="#/gerador" class="btn btn-primary btn-sm" style="gap: 4px;">
+              ${getIcon('plus', '', 13)}
               <span>Emitir Mais</span>
             </a>
           ` : `
-            <button id="btn-export-all-zip" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-              ${getIcon('download', '', 14)}
+            <button id="btn-export-all-zip" class="btn btn-secondary btn-sm" style="gap: 4px;">
+              ${getIcon('download', '', 13)}
               <span>Baixar Todos ZIP</span>
             </button>
-            <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-              ${getIcon('plus', '', 14)}
+            <a href="#/gerador" class="btn btn-primary btn-sm" style="gap: 4px;">
+              ${getIcon('plus', '', 13)}
               <span>Emitir Lote</span>
             </a>
           `}
         </div>
       </div>
 
-      <!-- Resumo de Métricas Compacto -->
-      <div class="grid grid-cols-4 gap-3 mb-4">
-        <div class="card" style="padding: 0.75rem 1rem;">
-          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Total de Placas</div>
-          <div style="font-size: 1.25rem; font-weight: 800; margin-top: 2px;">${total}</div>
+      <!-- Barra de KPIs Compacta -->
+      <div class="resp-grid-4" style="gap: 0.5rem; margin-bottom: 0.75rem;">
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Total</span>
+          <div class="num-tabular" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-top: 1px;">${total}</div>
         </div>
-        <div class="card" style="padding: 0.75rem 1rem;">
-          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Ativas</div>
-          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-green); margin-top: 2px;">${active}</div>
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Ativas</span>
+          <div class="num-tabular" style="font-size: 1.15rem; font-weight: 700; color: #059669; margin-top: 1px;">${active}</div>
         </div>
-        <div class="card" style="padding: 0.75rem 1rem;">
-          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Virgens (Disponíveis)</div>
-          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-gold); margin-top: 2px;">${virgin}</div>
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Virgens</span>
+          <div class="num-tabular" style="font-size: 1.15rem; font-weight: 700; color: var(--text-muted); margin-top: 1px;">${virgin}</div>
         </div>
-        <div class="card" style="padding: 0.75rem 1rem;">
-          <div class="text-xs text-muted font-medium" style="font-size: 0.7rem; text-transform: uppercase;">Total de Visualizações (Scans)</div>
-          <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-blue); margin-top: 2px;">${totalScans}</div>
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Scans</span>
+          <div class="num-tabular" style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-top: 1px;">${totalScans.toLocaleString('pt-BR')}</div>
         </div>
       </div>
 
       <!-- Barra de Filtros e Busca Rápida -->
-      <div class="card p-4 mb-6" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="card" style="padding: 0.65rem 0.85rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
         
         <!-- Linha 1: Abas de Status & Campo de Busca -->
-        <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-          <div class="filter-tabs" style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div class="filter-tabs">
             <button class="filter-btn ${currentFilter === 'all' ? 'active' : ''}" data-filter="all">
               Todas (${total})
             </button>
-            <button class="filter-btn ${currentFilter === 'today' ? 'active' : ''}" data-filter="today" style="${currentFilter === 'today' ? '' : 'color: #2563EB; font-weight: 700;'}">
+            <button class="filter-btn ${currentFilter === 'today' ? 'active' : ''}" data-filter="today">
               Hoje (${todayCount})
             </button>
             <button class="filter-btn ${currentFilter === 'active' ? 'active' : ''}" data-filter="active">
@@ -200,33 +210,33 @@ export function renderPlaqueTable({
             </button>
           </div>
 
-          <div style="flex: 1; max-width: 380px; min-width: 240px; position: relative;">
+          <div style="flex: 1; max-width: 320px; min-width: 200px; position: relative;">
             <input 
               type="text" 
               id="table-search" 
-              class="input-field" 
-              placeholder="Buscar por ID, empresa, cliente, link..." 
+              class="form-input" 
+              placeholder="Filtrar por ID, empresa, cliente, link..." 
               value="${escapeHtml(searchQuery)}"
-              style="padding-left: 2.2rem; font-size: 0.85rem;"
+              style="padding: 4px 26px 4px 28px; font-size: 0.75rem; height: 30px;"
             />
-            <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); pointer-events: none;">
-              ${getIcon('search', '', 14)}
+            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
+              ${getIcon('search', '', 13)}
             </span>
             ${searchQuery ? `
-              <button id="btn-clear-search" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-text-muted); cursor: pointer;">
-                ${getIcon('close', '', 12)}
+              <button id="btn-clear-search" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px;">
+                ${getIcon('close', '', 11)}
               </button>
             ` : ''}
           </div>
         </div>
 
         <!-- Linha 2: Filtros Avançados (Lote, Cliente, Ordenação, Itens por Página) -->
-        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--color-border); padding-top: 0.75rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
           
           ${!isSpecificBatch ? `
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="text-xs text-muted">Lote:</span>
-              <select id="filter-batch" class="input-field" style="padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; height: 32px;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Lote:</span>
+              <select id="filter-batch" class="filter-select">
                 <option value="all" ${(!batchName || batchName === 'all') ? 'selected' : ''}>Todos os Lotes</option>
                 ${allBatches.map(b => `
                   <option value="${escapeHtml(b.name)}" ${batchName === b.name ? 'selected' : ''}>
@@ -237,32 +247,32 @@ export function renderPlaqueTable({
             </div>
           ` : ''}
 
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="text-xs text-muted">Cliente:</span>
-            <select id="filter-client" class="input-field" style="padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; height: 32px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 0.7rem; color: var(--text-muted);">Cliente:</span>
+            <select id="filter-client" class="filter-select">
               <option value="all" ${clientFilter === 'all' ? 'selected' : ''}>Todos</option>
-              <option value="with_client" ${clientFilter === 'with_client' ? 'selected' : ''}>Com Cliente Vinculado</option>
-              <option value="without_client" ${clientFilter === 'without_client' ? 'selected' : ''}>Sem Cliente (Avulsas)</option>
+              <option value="with_client" ${clientFilter === 'with_client' ? 'selected' : ''}>Com Vínculo</option>
+              <option value="without_client" ${clientFilter === 'without_client' ? 'selected' : ''}>Sem Vínculo (Avulsas)</option>
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span class="text-xs text-muted">Ordenar:</span>
-            <select id="sort-by" class="input-field" style="padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; height: 32px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 0.7rem; color: var(--text-muted);">Ordenar:</span>
+            <select id="sort-by" class="filter-select">
               <option value="created_at" ${sortBy === 'created_at' ? 'selected' : ''}>Mais Recentes</option>
-              <option value="id" ${sortBy === 'id' ? 'selected' : ''}>ID da Placa</option>
-              <option value="name" ${sortBy === 'name' ? 'selected' : ''}>Nome da Empresa</option>
-              <option value="scans_count" ${sortBy === 'scans_count' ? 'selected' : ''}>Mais Visualizações</option>
-              <option value="last_scan_at" ${sortBy === 'last_scan_at' ? 'selected' : ''}>Última Visualização</option>
+              <option value="id" ${sortBy === 'id' ? 'selected' : ''}>ID</option>
+              <option value="name" ${sortBy === 'name' ? 'selected' : ''}>Empresa</option>
+              <option value="scans_count" ${sortBy === 'scans_count' ? 'selected' : ''}>Scans</option>
+              <option value="last_scan_at" ${sortBy === 'last_scan_at' ? 'selected' : ''}>Último Scan</option>
             </select>
-            <button id="btn-toggle-sort-order" class="btn btn-secondary btn-sm" title="Alternar Crescente/Decrescente" style="height: 32px; padding: 0 8px;">
-              ${sortOrder === 'asc' ? getIcon('arrowup', '', 14) : getIcon('arrowdown', '', 14)}
+            <button id="btn-toggle-sort-order" class="btn btn-secondary btn-xs" title="Inverter Ordem" style="padding: 4px 6px;">
+              ${sortOrder === 'asc' ? getIcon('arrowup', '', 12) : getIcon('arrowdown', '', 12)}
             </button>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
-            <span class="text-xs text-muted">Por página:</span>
-            <select id="per-page-select" class="input-field" style="padding: 0.35rem 0.6rem; font-size: 0.8rem; width: auto; height: 32px;">
+          <div style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+            <span style="font-size: 0.7rem; color: var(--text-muted);">Linhas:</span>
+            <select id="per-page-select" class="filter-select">
               <option value="15" ${perPage === 15 ? 'selected' : ''}>15</option>
               <option value="25" ${perPage === 25 ? 'selected' : ''}>25</option>
               <option value="50" ${perPage === 50 ? 'selected' : ''}>50</option>
@@ -271,7 +281,7 @@ export function renderPlaqueTable({
           </div>
 
           ${hasActiveFilters ? `
-            <button id="btn-reset-filters" class="btn btn-secondary btn-sm text-xs" style="height: 32px;">
+            <button id="btn-reset-filters" class="btn btn-ghost btn-xs" style="color: var(--text-muted);">
               Limpar Filtros
             </button>
           ` : ''}
@@ -280,135 +290,129 @@ export function renderPlaqueTable({
 
       </div>
 
-      <!-- Tabela de Placas Ultra Compacta (1 ÚNICA LINHA POR REGISTRO) -->
-      <div class="card p-0" style="overflow: hidden; border: 1px solid var(--color-border);">
+      <!-- Tabela Workstation de Alta Densidade -->
+      <div class="card" style="overflow: hidden;">
         <div style="overflow-x: auto;">
-          <table class="table" style="width: 100%; border-collapse: collapse; min-width: 960px;">
+          <table class="table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
             <thead>
-              <tr style="background-color: var(--color-surface); border-bottom: 1px solid var(--color-border); text-align: left; white-space: nowrap;">
-                <th style="padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 140px;">ID DA PLACA</th>
-                <th style="padding: 0.75rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 100px;">STATUS</th>
-                <th style="padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">EMPRESA / LINK DESTINO</th>
-                <th style="padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted);">CLIENTE / COMPRADOR</th>
-                <th style="padding: 0.75rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 75px; text-align: center;">PIN</th>
-                <th style="padding: 0.75rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 85px; text-align: center;">SCANS</th>
-                <th style="padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 130px;">ÚLTIMA VISUALIZAÇÃO</th>
-                <th style="padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); width: 130px; text-align: right;">AÇÕES</th>
+              <tr>
+                <th style="width: 130px;">ID DA PLACA</th>
+                <th style="width: 90px;">STATUS</th>
+                <th>EMPRESA / LINK DESTINO</th>
+                <th>CLIENTE / VÍNCULO</th>
+                <th style="width: 65px; text-align: center;">PIN</th>
+                <th style="width: 75px; text-align: center;">SCANS</th>
+                <th style="width: 120px;">ÚLTIMA LEITURA</th>
+                <th style="width: 105px; text-align: right;">AÇÕES</th>
               </tr>
             </thead>
             <tbody>
               ${total === 0 ? `
                 <tr>
-                  <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
-                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--color-text-muted);">
-                      ${getIcon('qrcode', '', 24)}
+                  <td colspan="8" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                    <div style="width: 36px; height: 36px; background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; color: var(--text-muted);">
+                      ${getIcon('qr', '', 18)}
                     </div>
-                    <div style="font-weight: 600; font-size: 1rem; color: var(--color-text); margin-bottom: 4px;">Nenhuma plaquinha cadastrada ainda</div>
-                    <p class="text-xs text-muted mb-4">Emita seu primeiro lote de QR Codes para abastecer seu estoque.</p>
-                    <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-                      ${getIcon('plus', '', 14)}
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 2px;">Nenhuma placa cadastrada</div>
+                    <p class="text-xs text-muted mb-3">Emita seu primeiro lote de QR Codes.</p>
+                    <a href="#/gerador" class="btn btn-primary btn-xs" style="gap: 4px;">
+                      ${getIcon('plus', '', 12)}
                       <span>Emitir Primeiro Lote</span>
                     </a>
                   </td>
                 </tr>
               ` : filtered.length === 0 ? `
                 <tr>
-                  <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
-                    <div style="margin-bottom: 8px; opacity: 0.4;">${getIcon('search', '', 32)}</div>
-                    <div>Nenhuma placa encontrada com os filtros selecionados.</div>
-                    ${hasActiveFilters ? `<button id="btn-empty-reset" class="btn btn-secondary btn-sm mt-3">Redefinir Filtros</button>` : ''}
+                  <td colspan="8" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+                    <div style="font-size: 0.8125rem;">Nenhuma placa localizada com os filtros atuais.</div>
+                    ${hasActiveFilters ? `<button id="btn-empty-reset" class="btn btn-secondary btn-xs mt-2">Limpar Filtros</button>` : ''}
                   </td>
                 </tr>
               ` : paginatedPlaques.map(plaque => `
-                <tr style="border-bottom: 1px solid var(--color-border); height: 48px; white-space: nowrap; vertical-align: middle; transition: background 0.15s ease;">
+                <tr>
                   
-                  <!-- ID da Placa (1 linha só) -->
-                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap;">
-                    <span class="badge" style="background: rgba(255,255,255,0.06); font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.5px;">
+                  <!-- ID da Placa -->
+                  <td>
+                    <span class="td-id">
                       ${escapeHtml(plaque.id)}
                     </span>
                     ${plaque.batch_name ? `
-                      <span class="text-xs text-muted" style="margin-left: 5px; font-size: 0.7rem;" title="Pasta de Lote: ${escapeHtml(plaque.batch_name)}">
+                      <span style="margin-left: 4px; font-size: 0.6875rem; color: var(--text-muted);" title="Lote: ${escapeHtml(plaque.batch_name)}">
                         (${escapeHtml(plaque.batch_name)})
                       </span>
                     ` : ''}
                   </td>
 
-                  <!-- Status (1 linha só) -->
-                  <td style="padding: 0.55rem 0.75rem; white-space: nowrap;">
-                    <span class="badge ${plaque.status === 'active' ? 'badge-active' : 'badge-virgin'}" style="white-space: nowrap; font-size: 0.75rem; padding: 2px 7px;">
-                      <span class="status-dot"></span>
+                  <!-- Status Linear -->
+                  <td>
+                    <span class="badge ${plaque.status === 'active' ? 'badge-active' : 'badge-virgin'}">
+                      <span class="status-dot" style="background-color: ${plaque.status === 'active' ? 'var(--green)' : 'var(--text-subtle)'};"></span>
                       ${plaque.status === 'active' ? 'Ativa' : 'Virgem'}
                     </span>
                   </td>
 
-                  <!-- Empresa & Link (1 linha só) -->
-                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis;">
+                  <!-- Empresa & Link -->
+                  <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     ${plaque.name ? `
-                      <span style="font-weight: 600; font-size: 0.8125rem; color: var(--color-text);" title="${escapeHtml(plaque.name)}">
+                      <span style="font-weight: 500; color: var(--text-main);" title="${escapeHtml(plaque.name)}">
                         ${escapeHtml(plaque.name)}
                       </span>
                       ${plaque.target_url ? `
-                        <a href="${escapeHtml(plaque.target_url)}" target="_blank" rel="noopener noreferrer" class="text-muted hover:text-blue" style="margin-left: 5px; display: inline-flex; vertical-align: middle;" title="Abrir link de avaliação: ${escapeHtml(plaque.target_url)}">
-                          ${getIcon('externallink', '', 12)}
+                        <a href="${escapeHtml(plaque.target_url)}" target="_blank" rel="noopener noreferrer" style="margin-left: 4px; display: inline-flex; vertical-align: middle; color: var(--text-muted);" title="${escapeHtml(plaque.target_url)}">
+                          ${getIcon('externalLink', '', 11)}
                         </a>
                       ` : ''}
                     ` : `
-                      <span class="text-xs text-muted" style="font-style: italic; font-size: 0.75rem;">Plaquinha virgem (aguardando ativação)</span>
+                      <span style="color: var(--text-muted); font-style: italic; font-size: 0.72rem;">Aguardando ativação</span>
                     `}
                   </td>
 
-                  <!-- Cliente / Comprador (1 linha só) -->
-                  <td style="padding: 0.55rem 0.9rem; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;">
+                  <!-- Cliente / Comprador -->
+                  <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     ${plaque.client_name || plaque.client_phone ? `
-                      <span style="font-size: 0.8125rem; font-weight: 500;" title="${escapeHtml(plaque.client_name || '')}">
+                      <span style="font-weight: 500; color: var(--text-main);" title="${escapeHtml(plaque.client_name || '')}">
                         ${escapeHtml(plaque.client_name || 'Comprador')}
                       </span>
                       ${plaque.client_phone ? `
-                        <span class="text-xs text-muted" style="margin-left: 4px; font-family: var(--font-mono); font-size: 0.72rem;">
+                        <span class="num-tabular" style="margin-left: 4px; font-size: 0.6875rem; color: var(--text-muted);">
                           (${escapeHtml(plaque.client_phone)})
                         </span>
                       ` : ''}
-                      ${plaque.client_code ? `
-                        <span class="text-xs" style="color: var(--color-gold); margin-left: 4px; font-size: 0.72rem;" title="Código de Login Invertido: ${escapeHtml(plaque.client_code)}">
-                          [Cód: ${escapeHtml(plaque.client_code)}]
-                        </span>
-                      ` : ''}
                     ` : `
-                      <span class="text-xs text-muted">Sem vínculo</span>
+                      <span style="color: var(--text-muted); font-size: 0.72rem;">—</span>
                     `}
                   </td>
 
-                  <!-- PIN (1 linha só) -->
-                  <td style="padding: 0.9rem 1rem; text-align: center; white-space: nowrap;">
-                    <span class="badge" style="background: rgba(255, 184, 0, 0.1); color: var(--color-gold); font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;">
-                      ${escapeHtml(plaque.pin || '---')}
+                  <!-- PIN -->
+                  <td style="text-align: center;">
+                    <span class="num-tabular" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
+                      ${escapeHtml(plaque.pin || '—')}
                     </span>
                   </td>
 
-                  <!-- Visualizações / Scans (1 linha só) -->
-                  <td style="padding: 0.9rem 1rem; text-align: center; font-weight: 700; font-size: 0.9rem; white-space: nowrap;">
-                    <span style="color: ${(plaque.scans_count || 0) > 0 ? 'var(--color-blue)' : 'var(--color-text-muted)'};">
+                  <!-- Scans -->
+                  <td style="text-align: center;">
+                    <span class="num-tabular" style="font-weight: 600; font-size: 0.8125rem; color: ${(plaque.scans_count || 0) > 0 ? 'var(--text-main)' : 'var(--text-muted)'};">
                       ${plaque.scans_count || 0}
                     </span>
                   </td>
 
-                  <!-- Última Visualização (1 linha só) -->
-                  <td style="padding: 0.9rem 1.15rem; font-size: 0.8rem; color: var(--color-text-muted); white-space: nowrap;">
+                  <!-- Última Leitura -->
+                  <td class="num-tabular" style="font-size: 0.72rem; color: var(--text-muted);">
                     ${plaque.last_scan_at ? formatRelativeTime(plaque.last_scan_at) : 'Nunca'}
                   </td>
 
-                  <!-- Ações (1 linha só com ícones vetoriais nítidos) -->
-                  <td style="padding: 0.9rem 1.15rem; text-align: right; white-space: nowrap;">
-                    <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center;">
-                      <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Ver QR Code / Baixar Arquivos" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;">
-                        ${getIcon('qrcode', '', 15)}
+                  <!-- Ações -->
+                  <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 3px; justify-content: flex-end; align-items: center;">
+                      <button class="btn btn-secondary btn-xs btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Ver QR Code / Baixar" style="padding: 3px 5px;">
+                        ${getIcon('qr', '', 12)}
                       </button>
-                      <button class="btn btn-secondary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Editar Destino / Dados" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;">
-                        ${getIcon('edit', '', 15)}
+                      <button class="btn btn-secondary btn-xs btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Editar Destino" style="padding: 3px 5px;">
+                        ${getIcon('edit', '', 12)}
                       </button>
-                      <button class="btn btn-secondary btn-sm btn-reset-plaque" data-id="${escapeHtml(plaque.id)}" title="Resetar Plaquinha para Virgem" style="padding: 6px 8px; height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center; color: var(--color-gold);">
-                        ${getIcon('refresh', '', 15)}
+                      <button class="btn btn-secondary btn-xs btn-reset-plaque" data-id="${escapeHtml(plaque.id)}" title="Resetar Placa" style="padding: 3px 5px; color: var(--text-muted);">
+                        ${getIcon('refresh', '', 12)}
                       </button>
                     </div>
                   </td>
@@ -423,7 +427,7 @@ export function renderPlaqueTable({
           totalItems: totalFiltered,
           currentPage: validPage,
           perPage: perPage,
-          entityName: 'plaquinhas',
+          entityName: 'placas',
           idPrefix: 'plaque'
         })}
       </div>

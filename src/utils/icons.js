@@ -167,6 +167,10 @@ export function getIcon(name, className = '', size = 18) {
     case 'dashboard':
       return `<svg ${props}><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>`;
 
+    case 'clock':
+    case 'time':
+      return `<svg ${props}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+
     case 'trendingup':
     case 'growth':
       return `<svg ${props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`;

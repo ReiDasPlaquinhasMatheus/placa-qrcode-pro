@@ -11,7 +11,7 @@ import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderDashboardView } from './components/DashboardView.js';
 import { renderSettingsView } from './components/SettingsView.js';
-import { renderEditModal, renderClientEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal } from './components/Modals.js';
+import { renderEditModal, renderClientEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal, renderClientResetPinModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
 import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
@@ -141,6 +141,23 @@ function getRoute() {
   return { name: 'lotes' };
 }
 
+// Busca o histórico real de leituras em segundo plano e redesenha a tela só
+// uma vez, quando chegam dados novos. Nunca bloqueia a renderização, e se o
+// SQL do histórico não estiver ativo a tela segue com o comportamento antigo.
+function refreshScanStatsInBackground(kind, clientCode) {
+  const routeName = kind === 'admin' ? 'dashboard' : 'cliente';
+  const request = kind === 'admin'
+    ? storage.fetchAdminScanStats()
+    : storage.fetchClientScanStats(clientCode);
+
+  Promise.resolve(request).then((refreshed) => {
+    if (!refreshed || state.currentRoute !== routeName) return;
+    // Não atropela quem já abriu um modal ou está no meio de uma ação
+    if (document.querySelector('.modal-overlay')) return;
+    renderApp();
+  }).catch(() => {});
+}
+
 // Renderizador Principal
 async function renderApp() {
   const appEl = document.getElementById('app');
@@ -248,6 +265,13 @@ async function renderApp() {
         }
       }
 
+      if (portalCode && !state.portalPasswordRequired) {
+        const loadedClient = storage.getClientByCode(portalCode);
+        if (loadedClient && loadedClient.client_code) {
+          refreshScanStatsInBackground('client', loadedClient.client_code);
+        }
+      }
+
       appEl.innerHTML = `
         ${renderClientPortalView({
           clientCode: portalCode,
@@ -303,6 +327,7 @@ async function renderApp() {
     // 6. Painel Administrativo com Sidebar Lateral (Apenas para Administrador autenticado)
     let mainContentHtml = '';
     if (route.name === 'dashboard') {
+      refreshScanStatsInBackground('admin');
       mainContentHtml = renderDashboardView({
         period: state.dashboardPeriod,
         series: state.dashboardSeries
@@ -449,6 +474,23 @@ function setupEventListeners() {
         state.dashboardSeries = series;
         renderApp();
       }
+    });
+  });
+
+  // Filtro interativo instantâneo do Radar de Saúde & Churn do Admin
+  document.querySelectorAll('.btn-radar-filter').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const category = e.currentTarget.dataset.category;
+      document.querySelectorAll('.btn-radar-filter').forEach(b => b.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+
+      document.querySelectorAll('.radar-client-row').forEach(row => {
+        if (category === 'all' || row.dataset.category === category) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
     });
   });
 
@@ -1431,15 +1473,85 @@ function setupModalListeners() {
       const res = await storage.clientSetPassword(code, phone, pass);
       if (res.success) {
         try { localStorage.setItem('portal_pw_banner_dismissed_' + code, '1'); } catch (err) {}
-        closeModal();
         state.portalPasswordRequired = false;
         state.portalPasswordCode = null;
         state.portalShowPasswordBanner = false;
         await storage.fetchClientBySession(code);
-        renderApp();
+
+        // Se veio do fluxo "Esqueci meu PIN" (sem senha ainda), volta
+        // direto pra lá agora que a senha já está configurada, em vez
+        // de simplesmente fechar o modal.
+        const returnToPinId = modal?.dataset.returnToPin;
+        if (returnToPinId) {
+          modalContainer.innerHTML = renderClientResetPinModal(returnToPinId);
+          setupModalListeners();
+        } else {
+          closeModal();
+          renderApp();
+        }
       } else {
         if (errorEl) { errorEl.textContent = res.error; errorEl.style.display = 'block'; }
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Senha'; }
+      }
+    });
+  }
+
+  // "Esqueci meu PIN" — links dentro dos modais de Apagar e Alterar
+  const linkForgotPinDelete = document.getElementById('link-forgot-pin-from-delete');
+  if (linkForgotPinDelete) {
+    linkForgotPinDelete.addEventListener('click', () => {
+      const id = linkForgotPinDelete.dataset.id;
+      modalContainer.innerHTML = renderClientResetPinModal(id);
+      setupModalListeners();
+    });
+  }
+
+  const linkForgotPinEdit = document.getElementById('link-forgot-pin-from-edit');
+  if (linkForgotPinEdit) {
+    linkForgotPinEdit.addEventListener('click', () => {
+      const id = linkForgotPinEdit.dataset.id;
+      modalContainer.innerHTML = renderClientResetPinModal(id);
+      setupModalListeners();
+    });
+  }
+
+  // Sem senha configurada ainda — manda pro modal de configurar senha,
+  // marcando pra voltar pro reset de PIN automaticamente no sucesso
+  const btnGotoSetupFromPin = document.getElementById('btn-goto-setup-password-from-pin');
+  if (btnGotoSetupFromPin) {
+    btnGotoSetupFromPin.addEventListener('click', () => {
+      const id = btnGotoSetupFromPin.dataset.id;
+      const phone = btnGotoSetupFromPin.dataset.phone || '';
+      const plaque = storage.getPlaqueById(id);
+      const clientCode = plaque?.client_code || '';
+      modalContainer.innerHTML = renderClientSetPasswordModal(clientCode, phone);
+      setupModalListeners();
+      const newModal = document.getElementById('client-set-password-modal');
+      if (newModal) newModal.dataset.returnToPin = id;
+    });
+  }
+
+  // Confirmar novo PIN (após já ter confirmado a senha)
+  const formClientResetPin = document.getElementById('form-client-reset-pin');
+  if (formClientResetPin) {
+    formClientResetPin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('client-reset-pin-modal');
+      const id = modal?.dataset.id;
+      const newPin = document.getElementById('crp-new-pin')?.value || '';
+      const errorEl = document.getElementById('crp-error');
+      const submitBtn = document.getElementById('btn-submit-client-reset-pin');
+
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
+
+      const res = await storage.clientResetPin(id, newPin);
+      if (res.success) {
+        closeModal();
+        alert('PIN atualizado com sucesso! Use o novo PIN nas próximas alterações dessa plaquinha.');
+        renderApp();
+      } else {
+        if (errorEl) { errorEl.textContent = res.error; errorEl.style.display = 'block'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Novo PIN'; }
       }
     });
   }

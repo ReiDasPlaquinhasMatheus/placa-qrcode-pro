@@ -12,44 +12,58 @@ function renderClientPortalLoginStyles() {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(circle at 85% 35%, rgba(59, 130, 246, 0.45) 0%, transparent 55%),
-                    radial-gradient(circle at 15% 75%, rgba(29, 78, 216, 0.5) 0%, transparent 60%),
-                    linear-gradient(135deg, #06112E 0%, #0A2268 40%, #1D4ED8 85%, #2563EB 100%);
-        padding: 2.5rem 1.5rem;
+        background-color: #090D16;
+        background-image: 
+          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 32px 32px;
+        padding: 2rem 1.25rem;
         position: relative;
-        overflow: hidden;
-      }
-
-      .portal-bg-orb {
-        position: absolute;
-        right: 5%;
-        top: 20%;
-        width: 500px;
-        height: 500px;
-        background: radial-gradient(circle, rgba(96, 165, 250, 0.35) 0%, rgba(37, 99, 235, 0.1) 60%, transparent 70%);
-        border-radius: 50%;
-        filter: blur(60px);
-        pointer-events: none;
       }
 
       .client-login-card {
-        background: rgba(255, 255, 255, 0.98);
-        backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.8);
-        border-radius: 24px;
-        box-shadow: 0 25px 50px -12px rgba(6, 17, 46, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4);
-        max-width: 480px;
+        background: #0E1526;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+        max-width: 440px;
         width: 100%;
-        padding: 2.75rem 2.25rem 2.25rem;
+        padding: 2.25rem 2rem;
+        position: relative;
+        z-index: 10;
+      }
+
+      .client-portal-hero-grid {
+        max-width: 920px;
+        width: 100%;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3.5rem;
+        align-items: center;
         position: relative;
         z-index: 10;
       }
 
       .client-login-card input:focus {
-        background: #FFFFFF !important;
-        border-color: #2563EB !important;
-        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+        background: #131B2E !important;
+        border-color: #3B82F6 !important;
+        box-shadow: 0 0 0 1px #3B82F6 !important;
         outline: none !important;
+      }
+
+      @media (max-width: 820px) {
+        .client-portal-hero-grid {
+          grid-template-columns: 1fr !important;
+          gap: 2rem !important;
+        }
+        .client-portal-hero-right {
+          display: none !important;
+        }
+        .client-login-card {
+          padding: 1.75rem 1.25rem !important;
+          max-width: 100% !important;
+        }
       }
     </style>
   `;
@@ -70,44 +84,46 @@ export function renderClientPortalView({
     return `
       <div class="client-portal-login-screen">
         ${renderClientPortalLoginStyles()}
-        <div class="portal-bg-orb"></div>
         <div class="client-login-card">
-          <div style="margin-bottom: 1.75rem;">
-            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: #EEF4FF; border: 1px solid #C7D9FF; border-radius: 999px; color: #1D4ED8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.25rem;">
-              ${getIcon('lock', '', 13)}
+          <div style="margin-bottom: 1.5rem;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 4px; color: #60A5FA; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem;">
+              ${getIcon('lock', '', 12)}
               Conta Protegida
             </div>
-            <h1 style="font-size: 1.6rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
-              Digite sua senha
+            <h1 style="font-size: 1.35rem; font-weight: 700; color: #F8FAFC; letter-spacing: -0.02em; margin-bottom: 0.35rem;">
+              Autenticação Requerida
             </h1>
-            <p style="font-size: 0.875rem; color: #64748B; line-height: 1.5; margin: 0;">
-              Essa conta está protegida por senha. Digite para acessar suas plaquinhas.
+            <p style="font-size: 0.8125rem; color: #94A3B8; line-height: 1.5; margin: 0;">
+              Digite sua senha de acesso para liberar a visualização e gestão das suas plaquinhas.
             </p>
           </div>
 
           <form id="form-client-password-login" data-code="${escapeHtml(passwordCode || clientCode)}">
-            <input
-              type="password"
-              id="client-password-input"
-              class="form-input"
-              placeholder="Sua senha"
-              style="font-size: 0.95rem; padding: 0.95rem 1rem; border: 1.5px solid #CBD5E1; border-radius: 12px; width: 100%; background: #F8FAFC; color: #0F172A;"
-              required
-              autofocus
-            />
-            <div id="client-password-error" style="color: #DC2626; font-size: 0.8125rem; margin-top: 8px; display: none;"></div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label class="form-label" for="client-password-input" style="color: #CBD5E1; font-size: 0.75rem;">Senha da Conta</label>
+              <input
+                type="password"
+                id="client-password-input"
+                class="form-input"
+                placeholder="••••••••"
+                style="font-size: 0.875rem; padding: 0.65rem 0.85rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; width: 100%; background: #0B101D; color: #F8FAFC;"
+                required
+                autofocus
+              />
+            </div>
+            <div id="client-password-error" style="color: #F87171; font-size: 0.75rem; margin-top: 6px; display: none;"></div>
 
-            <button type="submit" id="btn-submit-client-password" class="btn btn-primary w-full" style="margin-top: 1.25rem; padding: 0.9rem 1.5rem; font-weight: 700;">
-              Entrar
+            <button type="submit" id="btn-submit-client-password" class="btn btn-primary w-full" style="margin-top: 0.75rem; padding: 0.65rem 1rem; font-weight: 600; font-size: 0.8125rem;">
+              Desbloquear Painel
             </button>
           </form>
 
-          <div style="margin-top: 1.5rem; text-align: center; display: flex; flex-direction: column; gap: 10px;">
-            <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.8125rem; color: #2563EB; font-weight: 600; text-decoration: none;">
+          <div style="margin-top: 1.5rem; text-align: center; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem;">
+            <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.75rem; color: #60A5FA; font-weight: 500; text-decoration: none;">
               Esqueci minha senha
             </a>
-            <a href="#" id="link-portal-password-back" style="font-size: 0.8125rem; color: #64748B; text-decoration: none;">
-              Voltar
+            <a href="#" id="link-portal-password-back" style="font-size: 0.75rem; color: #64748B; text-decoration: none;">
+              Voltar para login principal
             </a>
           </div>
         </div>
@@ -121,136 +137,39 @@ export function renderClientPortalView({
   if (!client) {
     return `
       <div class="client-portal-login-screen">
-        <style>
-          .client-portal-login-screen {
-            min-height: 100vh;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at 85% 35%, rgba(59, 130, 246, 0.45) 0%, transparent 55%),
-                        radial-gradient(circle at 15% 75%, rgba(29, 78, 216, 0.5) 0%, transparent 60%),
-                        linear-gradient(135deg, #06112E 0%, #0A2268 40%, #1D4ED8 85%, #2563EB 100%);
-            padding: 2.5rem 1.5rem;
-            position: relative;
-            overflow: hidden;
-          }
-
-          .portal-bg-orb {
-            position: absolute;
-            right: 5%;
-            top: 20%;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(96, 165, 250, 0.35) 0%, rgba(37, 99, 235, 0.1) 60%, transparent 70%);
-            border-radius: 50%;
-            filter: blur(60px);
-            pointer-events: none;
-            animation: pulseGlow 6s ease-in-out infinite alternate;
-          }
-
-          .client-portal-hero-grid {
-            max-width: 1140px;
-            width: 100%;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1.05fr 0.95fr;
-            gap: 4.5rem;
-            align-items: center;
-            position: relative;
-            z-index: 10;
-          }
-
-          .client-login-card {
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(6, 17, 46, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4);
-            max-width: 480px;
-            width: 100%;
-            padding: 2.75rem 2.25rem 2.25rem;
-          }
-
-          .client-login-card input:focus {
-            background: #FFFFFF !important;
-            border-color: #2563EB !important;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
-            outline: none !important;
-          }
-
-          .floating-logo-wrapper {
-            position: relative;
-            animation: floatLogo 5s ease-in-out infinite;
-          }
-
-          @keyframes floatLogo {
-            0%, 100% {
-              transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-              transform: translateY(-16px) rotate(1.2deg);
-            }
-          }
-
-          @keyframes pulseGlow {
-            0% {
-              opacity: 0.4;
-              transform: scale(0.95);
-            }
-            100% {
-              opacity: 0.85;
-              transform: scale(1.15);
-            }
-          }
-
-          @media (max-width: 900px) {
-            .client-portal-hero-grid {
-              grid-template-columns: 1fr !important;
-              gap: 2.5rem !important;
-            }
-            .client-portal-hero-right {
-              order: -1;
-            }
-            .client-login-card {
-              padding: 2rem 1.5rem 1.75rem !important;
-            }
-            .floating-logo-wrapper img {
-              max-width: 220px !important;
-            }
-          }
-        </style>
-
-        <div class="portal-bg-orb"></div>
+        ${renderClientPortalLoginStyles()}
 
         <div class="client-portal-hero-grid">
           
-          <!-- Lado Esquerdo: Caixa de Login Espaçosa e Arejada -->
+          <!-- Lado Esquerdo: Card de Login Linear/Workstation -->
           <div style="display: flex; justify-content: center; width: 100%;">
             <div class="client-login-card">
               
               <!-- Cabeçalho do Card -->
-              <div style="margin-bottom: 2rem;">
-                <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: #EEF4FF; border: 1px solid #C7D9FF; border-radius: 999px; color: #1D4ED8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.25rem;">
-                  <span style="width: 7px; height: 7px; border-radius: 50%; background: #2563EB;"></span>
-                  Área do Cliente
+              <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                  <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; color: #94A3B8; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
+                    Portal do Cliente
+                  </div>
+                  <span class="font-mono text-xs" style="color: #64748B; font-size: 0.7rem;">v2.6</span>
                 </div>
                 
-                <h1 style="font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.025em; line-height: 1.25; margin-bottom: 0.75rem;">
+                <h1 style="font-size: 1.4rem; font-weight: 700; color: #F8FAFC; letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 0.35rem;">
                   Acesse suas Placas
                 </h1>
                 
-                <p style="font-size: 0.875rem; color: #64748B; line-height: 1.6; font-weight: 400; margin: 0;">
-                  Gerencie suas plaquinhas QR Code e acompanhe suas avaliações do Google em tempo real.
+                <p style="font-size: 0.8125rem; color: #94A3B8; line-height: 1.5; margin: 0;">
+                  Identifique-se com seu telefone para acompanhar leituras e gerenciar destinos.
                 </p>
               </div>
 
-              <!-- Formulário com Espaçamentos Generosos -->
+              <!-- Formulário -->
               <form id="form-client-login">
                 <div>
-                  <label class="form-label" for="client-login-input" style="font-weight: 700; color: #1E293B; font-size: 0.8125rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                  <label class="form-label" for="client-login-input" style="font-weight: 600; color: #E2E8F0; font-size: 0.75rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
                     <span>Telefone de Contato ou Código</span>
-                    <span style="font-weight: 600; color: #2563EB; font-size: 0.75rem; background: #F1F5F9; padding: 2px 8px; border-radius: 6px;">Acesso Direto</span>
+                    <span style="font-weight: 500; color: #60A5FA; font-size: 0.6875rem;">Acesso rápido</span>
                   </label>
                   
                   <div style="position: relative;">
@@ -258,59 +177,68 @@ export function renderClientPortalView({
                       type="text" 
                       id="client-login-input" 
                       class="form-input font-mono" 
-                      placeholder="Ex: (11) 98765-4321 ou código invertido" 
-                      style="font-size: 0.95rem; padding: 0.95rem 1rem 0.95rem 3.1rem; border: 1.5px solid #CBD5E1; border-radius: 12px; width: 100%; background: #F8FAFC; color: #0F172A; transition: all 0.2s ease;" 
+                      placeholder="(11) 98765-4321 ou código invertido" 
+                      style="font-size: 0.875rem; padding: 0.65rem 0.85rem 0.65rem 2.5rem; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; width: 100%; background: #0B101D; color: #F8FAFC; transition: border-color 0.15s ease;" 
                       required 
                       autofocus 
                     />
-                    <div style="position: absolute; left: 1.15rem; top: 50%; transform: translateY(-50%); color: #64748B; pointer-events: none; display: flex; align-items: center;">
-                      ${getIcon('phone', '', 18)}
+                    <div style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #64748B; pointer-events: none; display: flex; align-items: center;">
+                      ${getIcon('phone', '', 15)}
                     </div>
                   </div>
 
-                  <div style="margin-top: 1.25rem; padding: 0.85rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 0.775rem; color: #475569; display: flex; align-items: flex-start; gap: 10px; line-height: 1.5;">
-                    <span style="color: #2563EB; flex-shrink: 0; margin-top: 2px;">${getIcon('info', '', 15)}</span>
-                    <span><strong>Dica:</strong> Seu código de login é o seu número de WhatsApp com os dígitos invertidos.</span>
+                  <div style="margin-top: 0.75rem; padding: 0.65rem 0.85rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; font-size: 0.725rem; color: #94A3B8; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #60A5FA; flex-shrink: 0;">${getIcon('info', '', 14)}</span>
+                    <span>Seu código é o número de WhatsApp com os dígitos invertidos.</span>
                   </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-full" style="margin-top: 2rem; padding: 1rem 1.5rem; font-size: 0.975rem; font-weight: 700; background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%); border: none; border-radius: 12px; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 22px -5px rgba(37, 99, 235, 0.45); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;">
-                  <span>Acessar Minhas Plaquinhas</span>
-                  ${getIcon('arrowRight', '', 18)}
+                <button type="submit" class="btn btn-primary w-full" style="margin-top: 1.25rem; padding: 0.65rem 1rem; font-size: 0.8125rem; font-weight: 600; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  <span>Acessar Painel</span>
+                  ${getIcon('arrowRight', '', 14)}
                 </button>
               </form>
 
               <!-- Rodapé Separado e Limpo -->
-              <div style="margin-top: 2.25rem; text-align: center; border-top: 1px solid #F1F5F9; padding-top: 1.5rem;">
-                <a href="#/login" style="font-size: 0.775rem; color: #64748B; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: color 0.15s;">
-                  ${getIcon('lock', '', 14)}
-                  <span>Painel do Administrador</span>
+              <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 1rem;">
+                <a href="#/login" style="font-size: 0.75rem; color: #64748B; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: color 0.15s;">
+                  ${getIcon('lock', '', 13)}
+                  <span>Acesso do Administrador</span>
                 </a>
               </div>
 
             </div>
           </div>
 
-          <!-- Lado Direito: Logo Flutuante -->
-          <div class="client-portal-hero-right" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <div class="floating-logo-wrapper">
+          <!-- Lado Direito: Identidade Técnica Minimalista -->
+          <div class="client-portal-hero-right" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem;">
               <img 
                 src="/logo.png" 
                 alt="Rei do NFC" 
-                style="width: 340px; max-width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 25px 45px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 65px rgba(96, 165, 250, 0.55));" 
+                style="width: 48px; height: 48px; object-fit: contain;" 
               />
+              <div>
+                <div style="font-size: 1.125rem; font-weight: 800; color: #F8FAFC; letter-spacing: -0.01em;">
+                  REI DO NFC
+                </div>
+                <div class="font-mono text-xs" style="color: #64748B; font-size: 0.7rem;">Hardware & QR OS</div>
+              </div>
             </div>
 
-            <div style="margin-top: 2rem; color: #FFFFFF;">
-              <div style="display: inline-block; padding: 5px 16px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #93C5FD; backdrop-filter: blur(8px); margin-bottom: 0.85rem;">
-                Tecnologia & Inovação
+            <div style="color: #94A3B8; font-size: 0.8125rem; line-height: 1.6; max-width: 360px;">
+              Plataforma para monitoramento de leituras, redirecionamento instantâneo de links e captação de avaliações 5 estrelas no Google Meu Negócio.
+            </div>
+
+            <div style="margin-top: 1.75rem; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;">
+                <span style="color: #10B981;">${getIcon('checkCircle', '', 16)}</span>
+                <span style="font-size: 0.75rem; color: #CBD5E1;">QR Codes perpétuos com link editável a qualquer hora</span>
               </div>
-              <h2 style="font-size: 2.25rem; font-weight: 900; color: #FFFFFF; letter-spacing: -0.02em; line-height: 1.15; text-shadow: 0 4px 16px rgba(0,0,0,0.4);">
-                REI DO NFC
-              </h2>
-              <p style="font-size: 0.95rem; color: #BFDBFE; margin-top: 0.75rem; max-width: 380px; line-height: 1.55; text-shadow: 0 2px 6px rgba(0,0,0,0.3);">
-                Gerenciamento inteligente, avaliações 5 estrelas e redirecionamento dinâmico para o seu negócio.
-              </p>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;">
+                <span style="color: #3B82F6;">${getIcon('barChart', '', 16)}</span>
+                <span style="font-size: 0.75rem; color: #CBD5E1;">Contagem de acessos em tempo real com telemetria</span>
+              </div>
             </div>
           </div>
 
@@ -365,7 +293,7 @@ export function renderClientPortalView({
           </div>
 
           <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="inline-flex items-center px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-xs font-mono" style="gap: 4px;">
+            <div class="text-xs font-mono" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: #F1F5F9; border: 1px solid #E2E8F0;">
               ${getIcon('key', '', 13)} Código: <strong>${escapeHtml(client.client_code)}</strong>
             </div>
             <a href="#/cliente" id="btn-client-logout" data-code="${escapeHtml(client.client_code)}" class="btn btn-ghost btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
@@ -404,26 +332,212 @@ export function renderClientPortalView({
           `;
         })()}
 
-        <!-- Cards de Resumo do Cliente -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
-          <div class="card p-4">
-            <div class="text-xs text-muted font-medium">Minhas Plaquinhas</div>
-            <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px;">${allPlaques.length}</div>
-          </div>
+        <!-- CIÊNCIA DE DADOS CLIENTE: Cards de Resumo & KPIs Executivos -->
+        ${(() => {
+          const analytics = storage.getClientAnalytics(client.client_code || client.phone);
+          if (!analytics) return '';
 
-          <div class="card p-4">
-            <div class="text-xs text-muted font-medium">Plaquinhas Ativas</div>
-            <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--green);">${activeCount}</div>
-          </div>
+          return `
+            <!-- 4 CARDS DE KPIS -->
+            <div class="grid grid-cols-4 gap-3 mb-4">
+              <div class="stat-card">
+                <span class="stat-card-label">Total de Plaquinhas</span>
+                <div class="stat-card-value font-mono">${allPlaques.length}</div>
+              </div>
 
-          <div class="card p-4">
-            <div class="text-xs text-muted font-medium">Avaliações / Leituras Google</div>
-            <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--blue);">${totalScans}</div>
-          </div>
-        </div>
+              <div class="stat-card">
+                <span class="stat-card-label">Plaquinhas Ativas</span>
+                <div class="stat-card-value font-mono" style="color: var(--accent-emerald);">${activeCount}</div>
+              </div>
+
+              <div class="stat-card">
+                <span class="stat-card-label">Leituras Google Totais</span>
+                <div class="stat-card-value font-mono" style="color: var(--accent-blue);">${totalScans}</div>
+              </div>
+
+              <div class="stat-card">
+                <span class="stat-card-label">Leituras nos Últimos 7 Dias</span>
+                <div class="stat-card-value font-mono" style="color: #D97706;">${analytics.scanHistory.available ? analytics.scanHistory.last7 : '—'}</div>
+                <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">
+                  ${(() => {
+                    const h = analytics.scanHistory;
+                    if (!h.available) return 'histórico em ativação';
+                    if (h.growthPercent !== null) {
+                      return `${h.growthPercent >= 0 ? '▲' : '▼'} ${Math.abs(h.growthPercent)}% vs. semana anterior`;
+                    }
+                    return h.sinceLabel ? `registrado desde ${h.sinceLabel}` : 'coletando histórico';
+                  })()}
+                </span>
+              </div>
+            </div>
+
+            <!-- INSIGHTS EXECUTIVOS EM LINGUAGEM NATURAL -->
+            <div class="card p-3 mb-4" style="background: #FFFFFF; border: 1px solid var(--border-color); border-radius: 6px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
+                  <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main);">
+                    Resumo da sua conta
+                  </span>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px;">
+                ${analytics.insights.map(ins => `
+                  <div style="padding: 8px 10px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: flex-start; gap: 8px;">
+                    <span style="color: #2563EB; flex-shrink: 0; margin-top: 1px;">
+                      ${getIcon(ins.icon || 'zap', '', 14)}
+                    </span>
+                    <div>
+                      <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-main); margin-bottom: 2px;">
+                        ${escapeHtml(ins.title)}
+                      </div>
+                      <div style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">
+                        ${escapeHtml(ins.desc)}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- GRID DE CIÊNCIA DE DADOS (HORÁRIOS DE PICO & METAS) -->
+            <div class="resp-grid-2" style="gap: 12px; margin-bottom: 1rem;">
+              
+              <!-- Coluna 1: Ranking real de leituras por plaquinha -->
+              <div class="card p-3" style="background: #FFFFFF;">
+                <div style="margin-bottom: 10px;">
+                  <h3 style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                    Leituras por Plaquinha
+                  </h3>
+                  <p style="font-size: 0.6875rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                    Quais pontos físicos mais geram acessos ao seu Google
+                  </p>
+                </div>
+
+                ${analytics.plaqueRanking.length === 0 ? `
+                  <div style="padding: 1rem 0; font-size: 0.75rem; color: var(--text-muted);">
+                    Ainda não há leituras registradas. Assim que alguém aproximar o celular de uma plaquinha, ela aparece aqui.
+                  </div>
+                ` : `
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${analytics.plaqueRanking.map(ph => `
+                      <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; margin-bottom: 2px; gap: 8px;">
+                          <span style="font-weight: 500; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;" title="${escapeHtml(ph.name)}">
+                            ${escapeHtml(ph.name)}
+                            <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${escapeHtml(ph.id)})</span>
+                          </span>
+                          <span class="num-tabular font-mono" style="color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0;">
+                            <strong>${ph.scans}</strong> leituras (${ph.percentOfTotal}%)
+                          </span>
+                        </div>
+                        <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden;">
+                          <div style="width: ${ph.barPercent}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+
+              <!-- Coluna 2: Previsão de Meta & Saúde dos Pontos -->
+              <div class="card p-3" style="background: #FFFFFF; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <h3 style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                      Previsão de Meta no Google Maps
+                    </h3>
+                    <span class="badge badge-active font-mono" style="font-size: 0.65rem;">
+                      Meta: ${analytics.milestone.target}
+                    </span>
+                  </div>
+
+                  <!-- Barra de Progresso da Meta -->
+                  <div style="padding: 8px 10px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; margin-bottom: 4px;">
+                      <span>Progresso Atual: ${analytics.milestone.current} / ${analytics.milestone.target}</span>
+                      <span class="text-blue font-mono">${analytics.milestone.percent}%</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: #E5E7EB; border-radius: 999px; overflow: hidden; margin-bottom: 4px;">
+                      <div style="width: ${analytics.milestone.percent}%; height: 100%; background: #2563EB; border-radius: 999px;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">
+                      <span>Faltam ${analytics.milestone.remaining} leituras</span>
+                      <span>${analytics.milestone.estimatedDays !== null ? `Previsão: ~${analytics.milestone.estimatedDays} dias` : 'Previsão: —'}</span>
+                    </div>
+                  </div>
+
+                  <!-- Mini Radar de Saúde dos Pontos Físicos -->
+                  <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">
+                    Diagnóstico dos Pontos de Avaliação
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px; max-height: 110px; overflow-y: auto;">
+                    ${analytics.plaqueHealth.slice(0, 3).map(ph => `
+                      <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; background: var(--bg-subtle); border-radius: 4px; font-size: 0.6875rem;">
+                        <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;" title="${escapeHtml(ph.name)}">
+                          ${escapeHtml(ph.name)}
+                        </span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span class="badge ${ph.badgeClass}" style="font-size: 0.625rem; padding: 1px 4px;">
+                            ${ph.statusLabel}
+                          </span>
+                          <span class="font-mono num-tabular" style="font-weight: 600;">${ph.scans}</span>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Horários de maior movimento (dado real do histórico de leituras) -->
+            ${analytics.scanHistory.available ? `
+              <div class="card p-3" style="background: #FFFFFF; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                  <div>
+                    <h3 style="font-size: 0.8125rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                      Horários de Maior Movimento
+                    </h3>
+                    <p style="font-size: 0.6875rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                      Em que parte do dia as leituras acontecem${analytics.scanHistory.sinceLabel ? ` (desde ${escapeHtml(analytics.scanHistory.sinceLabel)})` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                ${analytics.scanHistory.dayparts ? `
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    ${analytics.scanHistory.dayparts.map(dp => `
+                      <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; margin-bottom: 2px; gap: 8px;">
+                          <span style="font-weight: 500; color: var(--text-main);">
+                            ${escapeHtml(dp.label)}
+                            <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${escapeHtml(dp.range)})</span>
+                            ${dp.isPeak ? `<span class="badge badge-active" style="font-size: 0.5625rem; padding: 1px 4px;">Maior movimento</span>` : ''}
+                          </span>
+                          <span class="num-tabular font-mono" style="color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0;">
+                            <strong>${dp.count}</strong> leituras (${dp.percent}%)
+                          </span>
+                        </div>
+                        <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden;">
+                          <div style="width: ${dp.percent}%; height: 100%; background: ${dp.isPeak ? '#059669' : '#0F172A'}; border-radius: 999px;"></div>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : `
+                  <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
+                    Estamos coletando as leituras das suas plaquinhas. Os horários de maior movimento aparecem quando houver pelo menos ${analytics.scanHistory.minForDayparts} leituras registradas (${analytics.scanHistory.total} até agora).
+                  </div>
+                `}
+              </div>
+            ` : ''}
+          `;
+        })()}
 
         <!-- Barra de Filtros e Busca do Cliente -->
-        <div class="filter-bar">
+        <div class="filter-bar mb-3">
           
           <div class="filter-group">
             <div style="display: flex; gap: 4px;">
@@ -443,16 +557,16 @@ export function renderClientPortalView({
             <input 
               type="text" 
               id="input-search-client-plaques" 
-              placeholder="Buscar plaquinha..." 
+              placeholder="Buscar por código ou empresa..." 
               value="${escapeHtml(searchQuery)}"
               class="form-input" 
-              style="padding: 6px 30px 6px 30px; font-size: 0.8125rem;"
+              style="padding: 5px 28px 5px 28px; font-size: 0.75rem;"
             />
-            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
-              ${getIcon('search', '', 14)}
+            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
+              ${getIcon('search', '', 13)}
             </span>
             ${searchQuery ? `
-              <button id="btn-clear-client-portal-search" class="btn-ghost" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar busca">
+              <button id="btn-clear-client-portal-search" class="btn-ghost" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar busca">
                 ${getIcon('close', '', 12)}
               </button>
             ` : ''}
@@ -475,7 +589,7 @@ export function renderClientPortalView({
             <tbody>
               ${paginatedPlaques.length === 0 ? `
                 <tr>
-                  <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                  <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.8125rem;">
                     Nenhuma plaquinha encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -483,11 +597,11 @@ export function renderClientPortalView({
                 const isVirgin = plaque.status === 'virgin';
 
                 return `
-                  <tr style="height: 50px; white-space: nowrap; vertical-align: middle;">
+                  <tr style="height: 44px; white-space: nowrap; vertical-align: middle;">
                     <!-- Código -->
                     <td class="font-mono font-bold" data-label="Código QR" style="white-space: nowrap;">
-                      <span class="text-blue btn-view-qr" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" data-id="${escapeHtml(plaque.id)}">
-                        ${getIcon('qrcode', '', 15)}
+                      <span class="text-blue btn-view-qr" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem;" data-id="${escapeHtml(plaque.id)}">
+                        ${getIcon('qrcode', '', 14)}
                         <span>${escapeHtml(plaque.id)}</span>
                       </span>
                     </td>
@@ -495,48 +609,48 @@ export function renderClientPortalView({
                     <!-- Status -->
                     <td data-label="Status" style="white-space: nowrap;">
                       ${isVirgin
-                        ? `<span class="badge badge-virgin">Virgem</span>`
-                        : `<span class="badge badge-active">Ativo</span>`
+                        ? `<span class="badge badge-virgin">○ Virgem</span>`
+                        : `<span class="badge badge-active">● Ativa</span>`
                       }
                     </td>
 
-                    <!-- Link e Empresa (1 linha só) -->
+                    <!-- Link e Empresa -->
                     <td data-label="Empresa / Link de Avaliação" style="white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;">
                       ${isVirgin ? `
                         <span class="text-muted text-xs">Plaquinha pronta para vincular</span>
                         <a href="#/activate/${escapeHtml(plaque.id)}" class="text-xs text-blue ml-2 font-medium" style="display: inline-flex; align-items: center; gap: 3px;">
                           <span>Vincular Agora</span>
-                          ${getIcon('arrowright', '', 12)}
+                          ${getIcon('arrowRight', '', 11)}
                         </a>
                       ` : `
                         <span class="font-bold text-sm text-main" title="${escapeHtml(plaque.name || '')}">${escapeHtml(plaque.name || 'Sua Empresa')}</span>
                         ${plaque.target_url ? `
                           <a href="${escapeHtml(plaque.target_url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue ml-2" style="display: inline-flex; vertical-align: middle;" title="${escapeHtml(plaque.target_url)}">
-                            ${getIcon('externallink', '', 12)}
+                            ${getIcon('externalLink', '', 12)}
                           </a>
                         ` : ''}
                       `}
                     </td>
 
                     <!-- Scans -->
-                    <td class="font-mono font-bold" data-label="Leituras" style="white-space: nowrap; color: ${(plaque.scans_count || 0) > 0 ? 'var(--color-blue)' : 'inherit'};">
+                    <td class="font-mono font-bold" data-label="Leituras" style="white-space: nowrap; color: ${(plaque.scans_count || 0) > 0 ? 'var(--accent-blue)' : 'inherit'}; font-size: 0.8125rem;">
                       ${plaque.scans_count || 0}
                     </td>
 
                     <!-- Último Scan -->
-                    <td class="text-xs text-muted" data-label="Última Leitura" style="white-space: nowrap;">${formatRelativeTime(plaque.last_scan_at)}</td>
+                    <td class="text-xs text-muted font-mono" data-label="Última Leitura" style="white-space: nowrap;">${formatRelativeTime(plaque.last_scan_at)}</td>
 
                     <!-- Ações do Cliente -->
                     <td class="client-td-actions" data-label="Ações" style="text-align: right; white-space: nowrap;">
                       <div style="display: inline-flex; gap: 4px;">
-                        <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Visualizar QR Code">
-                          ${getIcon('qrcode', '', 14)} QR
+                        <button class="btn btn-secondary btn-sm btn-view-qr" data-id="${escapeHtml(plaque.id)}" title="Visualizar QR Code" style="padding: 3px 8px; font-size: 0.6875rem;">
+                          ${getIcon('qrcode', '', 12)} QR
                         </button>
-                        <button class="btn btn-primary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Alterar Link de Destino">
-                          ${getIcon('edit', '', 14)} Alterar
+                        <button class="btn btn-primary btn-sm btn-edit-plaque" data-id="${escapeHtml(plaque.id)}" title="Alterar Link de Destino" style="padding: 3px 8px; font-size: 0.6875rem;">
+                          ${getIcon('edit', '', 12)} Alterar
                         </button>
-                        <button class="btn btn-sm btn-client-delete-plaque" data-id="${escapeHtml(plaque.id)}" title="Apagar / Desvincular Plaquinha" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
-                          ${getIcon('trash', '', 14)} Apagar
+                        <button class="btn btn-sm btn-client-delete-plaque" data-id="${escapeHtml(plaque.id)}" title="Apagar / Desvincular Plaquinha" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; padding: 3px 8px; display: inline-flex; align-items: center; gap: 3px; font-weight: 500; font-size: 0.6875rem;">
+                          ${getIcon('trash', '', 12)} Apagar
                         </button>
                       </div>
                     </td>

@@ -223,3 +223,23 @@ export function copyToClipboard(text) {
   document.body.removeChild(textarea);
   return Promise.resolve();
 }
+
+// Rótulo do ambiente: "DEV" em localhost/rede local, "PROD" no site publicado.
+export function getEnvLabel() {
+  if (typeof window === 'undefined' || !window.location) return 'DEV';
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.local') || /^192\.168\./.test(host) || /^10\./.test(host);
+  return isLocal ? 'DEV' : 'PROD';
+}
+
+// Chave de dia (YYYY-MM-DD) no fuso LOCAL do navegador. Datas do banco vêm em
+// UTC; cortar a string ISO no "T" jogava tudo depois das 21h (Brasília) para o
+// dia seguinte e zerava os números de "hoje" no meio da noite.
+export function toLocalDateKey(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

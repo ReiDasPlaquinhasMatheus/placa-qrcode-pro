@@ -36,7 +36,6 @@ export function renderClientsView({
       comparison = a.name.localeCompare(b.name);
       return sortOrder === 'desc' ? -comparison : comparison;
     } else {
-      // 'count' padrão (quantidade de placas)
       comparison = b.count - a.count;
     }
     return sortOrder === 'asc' ? -comparison : comparison;
@@ -51,45 +50,53 @@ export function renderClientsView({
   const hasActiveFilters = searchQuery.trim() !== '' || sortBy !== 'count';
 
   return `
-    <div class="container py-8">
+    <div class="container py-6">
       
-      <!-- Cabeçalho -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <!-- Cabeçalho Workstation -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
         <div>
-          <h1 style="font-size: 1.5rem; display: flex; align-items: center; gap: 8px;">
-            ${getIcon('users', '', 24)}
-            <span>Usuários e Clientes</span>
-          </h1>
-          <p class="text-sm text-muted mt-1">Gerencie os compradores das suas plaquinhas. O código de acesso deles é o próprio número de telefone invertido.</p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-main); display: flex; align-items: center; justify-content: center;">
+              ${getIcon('users', '', 14)}
+            </div>
+            <div>
+              <h1 style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+                Usuários & Clientes
+              </h1>
+              <p style="font-size: 0.72rem; color: var(--text-muted); margin: 1px 0 0 0;">
+                Diretório de compradores de placas com links diretos para portal individual
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div style="display: flex; gap: 8px;">
-          <a href="#/cliente" target="_blank" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('externalLink', '', 14)}
-            <span>Abrir Portal do Cliente</span>
+        <div style="display: flex; gap: 6px;">
+          <a href="#/cliente" target="_blank" class="btn btn-secondary btn-sm" style="gap: 4px;">
+            ${getIcon('externalLink', '', 12)}
+            <span>Portal do Comprador</span>
           </a>
-          <a href="#/gerador" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
-            ${getIcon('plus', '', 14)}
-            <span>Emitir Mais Códigos</span>
+          <a href="#/gerador" class="btn btn-primary btn-sm" style="gap: 4px;">
+            ${getIcon('plus', '', 12)}
+            <span>Emitir Lote</span>
           </a>
         </div>
       </div>
 
-      <!-- Resumo de Clientes -->
-      <div class="grid grid-cols-3 gap-4 mb-6">
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Total de Clientes / Compradores</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px;">${totalClients}</div>
+      <!-- Resumo de Clientes em KPIs Compactos -->
+      <div class="resp-grid-3" style="gap: 0.5rem; margin-bottom: 0.75rem;">
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Clientes Cadastrados</span>
+          <div class="num-tabular" style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-top: 1px;">${totalClients}</div>
         </div>
 
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Plaquinhas Vinculadas</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--blue);">${totalPlaquesWithClient}</div>
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Placas Vinculadas</span>
+          <div class="num-tabular" style="font-size: 1.25rem; font-weight: 700; color: #059669; margin-top: 1px;">${totalPlaquesWithClient}</div>
         </div>
 
-        <div class="card p-4">
-          <div class="text-xs text-muted font-medium">Scans Gerados por Clientes</div>
-          <div style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--green);">${totalScans}</div>
+        <div class="card" style="padding: 0.55rem 0.75rem;">
+          <span style="font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); font-family: var(--font-mono);">Scans em Clientes</span>
+          <div class="num-tabular" style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-top: 1px;">${totalScans.toLocaleString('pt-BR')}</div>
         </div>
       </div>
 
@@ -97,141 +104,147 @@ export function renderClientsView({
       <div class="filter-bar">
         
         <div class="filter-group">
-          <!-- Seletor de Ordenação de Clientes -->
-          <label for="select-sort-clients" class="text-xs text-muted font-medium">Ordenar por:</label>
+          <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">Ordenar:</span>
           <select id="select-sort-clients" class="filter-select">
             <option value="count:desc" ${sortBy === 'count' && sortOrder === 'desc' ? 'selected' : ''}>Mais Placas</option>
-            <option value="totalScans:desc" ${sortBy === 'totalScans' && sortOrder === 'desc' ? 'selected' : ''}>Mais Scans / Leituras</option>
-            <option value="name:asc" ${sortBy === 'name' && sortOrder === 'asc' ? 'selected' : ''}>Nome do Cliente (A–Z)</option>
+            <option value="totalScans:desc" ${sortBy === 'totalScans' && sortOrder === 'desc' ? 'selected' : ''}>Mais Scans</option>
+            <option value="name:asc" ${sortBy === 'name' && sortOrder === 'asc' ? 'selected' : ''}>Nome (A–Z)</option>
           </select>
 
           ${hasActiveFilters ? `
-            <button id="btn-clear-client-filters" class="btn btn-ghost btn-sm text-xs" style="color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;" title="Limpar busca e ordenação">
-              ${getIcon('xCircle', '', 13)}
-              <span>Limpar Filtros</span>
+            <button id="btn-clear-client-filters" class="btn btn-ghost btn-xs" style="gap: 3px;" title="Limpar">
+              ${getIcon('xCircle', '', 11)}
+              <span>Limpar</span>
             </button>
           ` : ''}
         </div>
 
-        <div style="width: 260px; max-width: 100%; position: relative;">
+        <div style="width: 240px; max-width: 100%; position: relative;">
           <input 
             type="text" 
             id="input-search-clients" 
             placeholder="Buscar nome, telefone, login..." 
             value="${escapeHtml(searchQuery)}"
             class="form-input" 
-            style="padding: 6px 30px 6px 30px; font-size: 0.8125rem;"
+            style="padding: 4px 26px 4px 28px; font-size: 0.75rem; height: 30px;"
           />
-          <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
-            ${getIcon('search', '', 14)}
+          <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;">
+            ${getIcon('search', '', 13)}
           </span>
           ${searchQuery ? `
-            <button id="btn-clear-client-search" class="btn-ghost" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar busca">
-              ${getIcon('close', '', 12)}
+            <button id="btn-clear-client-search" class="btn-ghost" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; padding: 2px; color: var(--text-muted); cursor: pointer;" title="Limpar">
+              ${getIcon('close', '', 11)}
             </button>
           ` : ''}
         </div>
 
       </div>
 
-      <!-- Tabela de Clientes -->
-      <div class="table-container" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Cliente / Responsável</th>
-              <th>Telefone (WhatsApp)</th>
-              <th>Código de Acesso (Login)</th>
-              <th style="width: 130px;">Placas Atreladas</th>
-              <th style="width: 100px;">Total Scans</th>
-              <th style="width: 170px; text-align: right;">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${paginatedClients.length === 0 ? `
+      <!-- Tabela Workstation de Clientes -->
+      <div class="card" style="overflow: hidden;">
+        <div style="overflow-x: auto;">
+          <table class="table" style="width: 100%; border-collapse: collapse; min-width: 800px;">
+            <thead>
               <tr>
-                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                  ${hasActiveFilters 
-                    ? `Nenhum cliente encontrado para a busca informada. <button id="btn-reset-client-search-inline" class="text-blue underline font-medium" style="background:none; border:none; cursor:pointer; font-size:inherit;">Limpar busca</button>` 
-                    : `Nenhum cliente cadastrado ainda. Os clientes aparecem aqui automaticamente assim que ativam suas plaquinhas com telefone.`
-                  }
-                </td>
+                <th>CLIENTE / RESPONSÁVEL</th>
+                <th>WHATSAPP / TELEFONE</th>
+                <th>CÓDIGO DE ACESSO</th>
+                <th style="width: 110px; text-align: center;">PLACAS</th>
+                <th style="width: 90px; text-align: center;">SCANS</th>
+                <th style="width: 130px; text-align: right;">AÇÕES</th>
               </tr>
-            ` : paginatedClients.map(client => {
-              const origin = typeof window !== 'undefined' ? window.location.origin : '';
-              const waLink = getWhatsAppUrl(client.phone, `Olá ${client.name}, aqui está o link de acesso para gerenciar suas plaquinhas QR Code: ${origin}/#/cliente/${client.client_code}`);
-              const clientPortalLink = `${origin}/#/cliente/${client.client_code}`;
-
-              return `
+            </thead>
+            <tbody>
+              ${paginatedClients.length === 0 ? `
                 <tr>
-                  <!-- Nome -->
-                  <td>
-                    <div class="font-bold text-sm text-main">${escapeHtml(client.name)}</div>
-                    <div class="text-xs text-muted font-mono mt-0.5">${escapeHtml(client.plaques.map(p => p.id).slice(0, 3).join(', '))}${client.plaques.length > 3 ? ` (+${client.plaques.length - 3})` : ''}</div>
-                  </td>
-
-                  <!-- Telefone / WhatsApp -->
-                  <td>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <span class="font-mono text-xs">${escapeHtml(formatPhone(client.phone)) || 'Sem telefone'}</span>
-                      ${client.phone ? `
-                        <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="padding: 2px 6px; color: #16A34A; display: inline-flex; align-items: center; gap: 4px;" title="Conversar no WhatsApp">
-                          ${getIcon('whatsapp', '', 14)}
-                          <span>WhatsApp</span>
-                        </a>
-                      ` : ''}
-                    </div>
-                  </td>
-
-                  <!-- Código de Login (Invertido) -->
-                  <td>
-                    <div style="display: inline-flex; align-items: center; gap: 4px;">
-                      <span class="font-mono font-bold text-xs px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800" style="display: inline-flex; align-items: center; gap: 4px;">
-                        ${getIcon('key', '', 12)}
-                        <span>${escapeHtml(client.client_code)}</span>
-                      </span>
-                    </div>
-                  </td>
-
-                  <!-- Placas -->
-                  <td>
-                    <span class="font-bold text-sm">${client.count} placas</span>
-                    <span class="text-xs text-muted block">(${client.active} ativas)</span>
-                  </td>
-
-                  <!-- Scans -->
-                  <td class="font-mono font-bold text-sm">${client.totalScans}</td>
-
-                  <!-- Ações -->
-                  <td style="text-align: right; white-space: nowrap;">
-                    <div style="display: inline-flex; gap: 4px;">
-                      <button class="btn btn-secondary btn-sm btn-copy-client-link" data-url="${escapeHtml(clientPortalLink)}" title="Copiar link de login do cliente" style="display: inline-flex; align-items: center; gap: 4px;">
-                        ${getIcon('copy', '', 13)}
-                        <span>Copiar Link</span>
-                      </button>
-                      <a href="#/cliente/${encodeURIComponent(client.client_code)}" class="btn btn-primary btn-sm" title="Acessar painel deste cliente" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <span>Abrir</span>
-                        ${getIcon('arrowRight', '', 13)}
-                      </a>
-                    </div>
+                  <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted); font-size: 0.75rem;">
+                    ${hasActiveFilters 
+                      ? `Nenhum cliente localizado para o termo pesquisado.` 
+                      : `Nenhum cliente cadastrado ainda.`
+                    }
                   </td>
                 </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
+              ` : paginatedClients.map(client => {
+                // Link enviado ao cliente usa o domínio de produção configurado, nunca
+                // um localhost/IP de teste (se o admin estiver testando localmente).
+                const origin = (storage.settings?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '');
+                const waLink = getWhatsAppUrl(client.phone, `Olá ${client.name}, segue seu link para gerenciar suas plaquinhas QR Code: ${origin}/#/cliente/${client.client_code}`);
+                const clientPortalLink = `${origin}/#/cliente/${client.client_code}`;
 
-      <!-- Barra de Paginação de Clientes -->
-      ${renderPagination({
-        totalItems: totalFiltered,
-        currentPage: validPage,
-        perPage,
-        entityName: 'clientes',
-        idPrefix: 'client'
-      })}
+                return `
+                  <tr>
+                    <!-- Nome -->
+                    <td>
+                      <div style="font-weight: 600; color: var(--text-main); font-size: 0.8125rem;">${escapeHtml(client.name)}</div>
+                      <div style="font-size: 0.6875rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px;">
+                        ${escapeHtml(client.plaques.map(p => p.id).slice(0, 3).join(', '))}${client.plaques.length > 3 ? ` (+${client.plaques.length - 3})` : ''}
+                      </div>
+                    </td>
+
+                    <!-- Telefone / WhatsApp -->
+                    <td>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="num-tabular" style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+                          ${escapeHtml(formatPhone(client.phone)) || '—'}
+                        </span>
+                        ${client.phone ? `
+                          <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-xs" style="color: #059669; padding: 2px 5px;" title="Conversar no WhatsApp">
+                            ${getIcon('whatsapp', '', 12)}
+                          </a>
+                        ` : ''}
+                      </div>
+                    </td>
+
+                    <!-- Código de Login (Invertido) -->
+                    <td>
+                      <span class="num-tabular" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-main); background: var(--bg-subtle); border: 1px solid var(--border-color); padding: 1px 5px; border-radius: var(--radius-xs);">
+                        ${escapeHtml(client.client_code)}
+                      </span>
+                    </td>
+
+                    <!-- Placas -->
+                    <td style="text-align: center;">
+                      <span class="badge badge-virgin num-tabular" style="font-weight: 600;">
+                        ${client.count} un
+                      </span>
+                      <span class="num-tabular" style="font-size: 0.65rem; color: #059669; display: block; margin-top: 1px;">${client.active} ativas</span>
+                    </td>
+
+                    <!-- Scans -->
+                    <td style="text-align: center; font-size: 0.8125rem; font-weight: 600;" class="num-tabular font-mono">
+                      ${client.totalScans}
+                    </td>
+
+                    <!-- Ações -->
+                    <td style="text-align: right; white-space: nowrap;">
+                      <div style="display: inline-flex; gap: 4px;">
+                        <button class="btn btn-secondary btn-xs btn-copy-client-link" data-url="${escapeHtml(clientPortalLink)}" title="Copiar link do portal">
+                          ${getIcon('copy', '', 11)}
+                          <span>Link</span>
+                        </button>
+                        <a href="#/cliente/${encodeURIComponent(client.client_code)}" class="btn btn-primary btn-xs" title="Acessar painel deste cliente">
+                          <span>Abrir</span>
+                          ${getIcon('arrowRight', '', 11)}
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Barra de Paginação de Clientes -->
+        ${renderPagination({
+          totalItems: totalFiltered,
+          currentPage: validPage,
+          perPage,
+          entityName: 'clientes',
+          idPrefix: 'client'
+        })}
+      </div>
 
     </div>
   `;
 }
-

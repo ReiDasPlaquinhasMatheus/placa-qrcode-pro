@@ -181,6 +181,9 @@ export function renderClientEditModal(plaqueId) {
           <div class="form-group">
             <label class="form-label" for="cep-pin">Digite o PIN de segurança para confirmar</label>
             <input type="password" id="cep-pin" class="form-input font-mono" maxlength="6" placeholder="PIN da plaquinha" autocomplete="off" required />
+            <button type="button" id="link-forgot-pin-from-edit" data-id="${escapeHtml(plaque.id)}" class="text-xs text-blue" style="background: none; border: none; padding: 0; margin-top: 6px; cursor: pointer; text-decoration: underline;">
+              Esqueci meu PIN
+            </button>
           </div>
 
           <div id="cep-error" style="color: #DC2626; font-size: 0.75rem; margin-bottom: 8px; display: none;"></div>
@@ -242,21 +245,21 @@ export function renderProgressModal({ title = 'Gerando Pacote de Arquivos', curr
     <div class="modal-overlay" id="progress-modal" style="z-index: 9999;">
       <div class="modal-box text-center" style="max-width: 440px;">
         
-        <div style="width: 48px; height: 48px; background: #EEF2FF; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: #4F46E5;">
-          ${getIcon('download', '', 24)}
+        <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem; color: #2563EB;">
+          ${getIcon('download', '', 20)}
         </div>
 
-        <h3 id="progress-modal-title" style="font-size: 1.125rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">
+        <h3 id="progress-modal-title" style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">
           ${escapeHtml(title)}
         </h3>
 
-        <p id="progress-modal-message" class="text-xs text-muted mb-4">
+        <p id="progress-modal-message" class="text-xs text-muted mb-3 font-mono">
           ${escapeHtml(message)}
         </p>
 
-        <!-- Barra de Progresso Animada -->
-        <div style="background: #F1F5F9; height: 10px; border-radius: 999px; overflow: hidden; margin-bottom: 0.75rem; border: 1px solid #E2E8F0;">
-          <div id="progress-bar-fill" style="background: linear-gradient(90deg, #3B82F6, #2563EB); height: 100%; width: ${percent}%; border-radius: 999px; transition: width 0.15s ease;"></div>
+        <!-- Barra de Progresso Limpa -->
+        <div style="background: #F3F4F6; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 0.75rem; border: 1px solid var(--border-color);">
+          <div id="progress-bar-fill" style="background: #2563EB; height: 100%; width: ${percent}%; border-radius: 3px; transition: width 0.15s ease;"></div>
         </div>
 
         <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
@@ -359,6 +362,9 @@ export function renderConfirmDeletePlaqueModal(plaqueId, isClient = false) {
             <div id="delete-pin-error" style="color: #DC2626; font-size: 0.75rem; margin-top: 4px; display: none;">
               PIN de segurança incorreto. Tente novamente.
             </div>
+            <button type="button" id="link-forgot-pin-from-delete" data-id="${escapeHtml(plaque.id)}" class="text-xs text-blue" style="background: none; border: none; padding: 0; margin-top: 6px; cursor: pointer; text-decoration: underline;">
+              Esqueci meu PIN
+            </button>
           </div>
         ` : ''}
 
@@ -424,6 +430,69 @@ export function renderClientSetPasswordModal(clientCode, phoneHint = '') {
             </button>
           </div>
         </form>
+
+      </div>
+    </div>
+  `;
+}
+
+// "Esqueci meu PIN" — só funciona pra quem já confirmou a senha nesta
+// sessão (a senha já prova quem é a pessoa). Sem senha, oferece ir
+// direto pra configurar uma.
+export function renderClientResetPinModal(plaqueId) {
+  const hasSession = Boolean(storage.getClientSessionInfo()?.token);
+  const plaque = storage.getPlaqueById(plaqueId);
+
+  return `
+    <div class="modal-overlay" id="client-reset-pin-modal" data-id="${escapeHtml(plaqueId || '')}">
+      <div class="modal-box" style="max-width: 420px;">
+
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #EEF4FF; display: flex; align-items: center; justify-content: center; color: #2563EB; flex-shrink: 0;">
+            ${getIcon('key', '', 20)}
+          </div>
+          <div style="flex: 1;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0F172A; margin: 0;">Esqueci meu PIN</h3>
+            <span class="text-xs text-muted">Código: <strong>${escapeHtml(plaqueId || '')}</strong></span>
+          </div>
+          <button class="btn-close-modal btn btn-ghost btn-sm" style="padding: 4px 8px;" title="Fechar">
+            ${getIcon('close', '', 16)}
+          </button>
+        </div>
+
+        ${hasSession ? `
+          <p style="font-size: 0.8125rem; color: #475569; line-height: 1.5; margin-bottom: 1.25rem;">
+            Como você já confirmou sua senha, pode definir um novo PIN de segurança para essa plaquinha agora, sem precisar do PIN antigo.
+          </p>
+
+          <form id="form-client-reset-pin">
+            <div class="form-group mb-3">
+              <label class="form-label" for="crp-new-pin">Novo PIN de Segurança</label>
+              <input type="text" id="crp-new-pin" class="form-input font-mono" maxlength="6" placeholder="Ex: 1234" required autocomplete="off" />
+            </div>
+
+            <div id="crp-error" style="color: #DC2626; font-size: 0.75rem; margin-bottom: 8px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+              <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Cancelar</button>
+              <button type="submit" id="btn-submit-client-reset-pin" class="btn btn-primary btn-sm">Salvar Novo PIN</button>
+            </div>
+          </form>
+        ` : `
+          <p style="font-size: 0.8125rem; color: #475569; line-height: 1.5; margin-bottom: 1rem;">
+            Isso só funciona pra quem já tem uma senha configurada na conta — é ela que confirma que é você, sem precisar do PIN antigo.
+          </p>
+          <p style="font-size: 0.8125rem; color: #475569; line-height: 1.5; margin-bottom: 1.25rem;">
+            Configure uma senha agora pra liberar essa opção, ou fale com o Rei do NFC pra trocar o PIN diretamente.
+          </p>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+            <button type="button" class="btn btn-ghost btn-close-modal btn-sm">Fechar</button>
+            <button type="button" id="btn-goto-setup-password-from-pin" data-id="${escapeHtml(plaqueId || '')}" data-phone="${escapeHtml(plaque?.client_phone || '')}" class="btn btn-primary btn-sm">
+              Configurar Senha Agora
+            </button>
+          </div>
+        `}
 
       </div>
     </div>

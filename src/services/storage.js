@@ -1,8 +1,59 @@
 // Placa QR Pro - Data Storage & Persistence Service
 // Sincronização em Tempo Real (Supabase Cloud + Local API + IndexedDB + LocalStorage Fallback)
 // Arquitetura Ultra Otimizada para 10.000+ Placas e 300+ Usuários Simultâneos com Lookups O(1)
-import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex } from '../utils/helpers.js';
+import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex, toLocalDateKey } from '../utils/helpers.js';
 import { idb } from './db.js';
+
+// ---- Histórico de leituras (tabela scan_events) --------------------------
+const BRASILIA_TZ = 'America/Sao_Paulo';
+const DAY_MS_CONST = 24 * 60 * 60 * 1000;
+const MIN_EVENTS_FOR_DAYPARTS = 10;
+
+// Dia (YYYY-MM-DD) no fuso de Brasília — o mesmo usado pelo banco para agrupar
+function brasiliaDateKey(date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BRASILIA_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(date);
+}
+
+// Resume as linhas {d, h, n} devolvidas pelas RPCs de estatística
+function summarizeScanEvents(stats, now = new Date()) {
+  if (!stats || !Array.isArray(stats.rows)) return null;
+
+  const dayKey = (offsetDays) => brasiliaDateKey(new Date(now.getTime() - offsetDays * DAY_MS_CONST));
+  const last7 = new Set([0, 1, 2, 3, 4, 5, 6].map(dayKey));
+  const prev7 = new Set([7, 8, 9, 10, 11, 12, 13].map(dayKey));
+
+  let total = 0;
+  let last7Count = 0;
+  let prev7Count = 0;
+  const byHour = new Array(24).fill(0);
+
+  for (const r of stats.rows) {
+    const n = Number(r.n) || 0;
+    const h = Number(r.h);
+    total += n;
+    if (h >= 0 && h < 24) byHour[h] += n;
+    if (last7.has(r.d)) last7Count += n;
+    else if (prev7.has(r.d)) prev7Count += n;
+  }
+
+  const sinceKey = stats.since ? brasiliaDateKey(new Date(stats.since)) : null;
+  const daysTracked = sinceKey
+    ? Math.round((Date.parse(brasiliaDateKey(now)) - Date.parse(sinceKey)) / DAY_MS_CONST) + 1
+    : 0;
+
+  return { total, last7: last7Count, prev7: prev7Count, byHour, sinceKey, daysTracked };
+}
+
+// "2026-10-04" -> "04/10"
+function formatDayKeyShort(key) {
+  if (!key) return '';
+  const parts = String(key).split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : key;
+}
+
+const isMissingRpcError = (err) => /could not find the function|erro 404/i.test(String((err && err.message) || ''));
 
 const STORAGE_KEY = 'placa_qrcode_pro_data_v6';
 const SETTINGS_KEY = 'placa_qrcode_pro_settings_v6';
@@ -395,6 +446,7 @@ class StorageService {
   // alguém apagar o navegador, mesmo depois de "sair".
   clientLogout(clientCode) {
     this.clearClientSessionInfo();
+    if (this.clientScanStats) this.clientScanStats = {};
     if (clientCode) {
       const before = this.plaques.length;
       this.plaques = this.plaques.filter(p => (p.client_code || '') !== clientCode);
@@ -407,6 +459,46 @@ class StorageService {
         this.saveToDisk(this.plaques);
       }
     }
+  }
+
+  // "Esqueci meu PIN" — só funciona com sessão de senha válida (prova
+  // quem é a pessoa sem precisar do PIN antigo). Reseta o PIN de UMA
+  // placa específica, sempre confirmando no banco que ela pertence a
+  // esse client_code.
+  async clientResetPin(plaqueId, newPin) {
+    const session = this.getClientSessionInfo();
+    if (!session || !session.token) {
+      return { success: false, error: 'Você precisa estar logado com sua senha para resetar o PIN. Configure uma senha primeiro.' };
+    }
+    if (!newPin || String(newPin).trim().length < 3) {
+      return { success: false, error: 'O PIN deve ter pelo menos 3 caracteres.' };
+    }
+    try {
+      await this.callRpc('client_reset_pin', {
+        p_id: plaqueId,
+        p_session_token: session.token,
+        p_new_pin: String(newPin).trim()
+      }, 6000);
+    } catch (err) {
+      const msg = String(err && err.message || '');
+      if (msg === 'INVALID_SESSION') {
+        return { success: false, error: 'Sua sessão expirou. Saia e entre novamente com sua senha.' };
+      }
+      if (msg === 'NOT_OWNER') {
+        return { success: false, error: 'Essa plaquinha não pertence à sua conta.' };
+      }
+      if (msg === 'PLAQUE_NOT_FOUND') {
+        return { success: false, error: 'Plaquinha não encontrada.' };
+      }
+      return { success: false, error: 'Não foi possível trocar o PIN agora. Verifique sua conexão e tente novamente.' };
+    }
+
+    const plaque = this.getPlaqueById(plaqueId);
+    if (plaque) {
+      plaque.pin = String(newPin).trim();
+      this.saveToDisk(this.plaques);
+    }
+    return { success: true };
   }
 
   // Chamada genérica de função (RPC) do Supabase. Toda leitura/escrita
@@ -1227,16 +1319,95 @@ class StorageService {
     return this._cachedStats;
   }
 
+  // Histórico real de leituras (admin). Devolve true quando buscou dados novos
+  // na nuvem (a tela então se redesenha); false se usou cache ou não há como.
+  // Se o SQL do histórico ainda não foi rodado no Supabase, desliga a busca
+  // nesta sessão e o painel continua com o comportamento antigo.
+  async fetchAdminScanStats() {
+    if (this._scanStatsUnavailable) return false;
+    const token = this.getAdminSessionToken();
+    if (!token) return false;
+    const cached = this.adminScanStats;
+    if (cached && Date.now() - cached.fetchedAt < 60000) return false;
+    if (this._adminScanStatsPromise) return this._adminScanStatsPromise;
+
+    this._adminScanStatsPromise = (async () => {
+      try {
+        const data = await this.callRpc('admin_scan_stats', { p_token: token, p_days: 45 }, 8000);
+        this.adminScanStats = {
+          since: (data && data.since) || null,
+          rows: Array.isArray(data && data.rows) ? data.rows : [],
+          fetchedAt: Date.now()
+        };
+        return true;
+      } catch (err) {
+        if (isMissingRpcError(err)) this._scanStatsUnavailable = true;
+        // Falha registrada no cache: não martela o servidor a cada redesenho
+        this.adminScanStats = { since: null, rows: null, fetchedAt: Date.now(), failed: true };
+        return false;
+      } finally {
+        this._adminScanStatsPromise = null;
+      }
+    })();
+    return this._adminScanStatsPromise;
+  }
+
+  // Histórico real de leituras de UM cliente (portal). Usa a sessão de senha
+  // quando ela é DESSE cliente; senão consulta por telefone/código (contas
+  // sem senha). Conta com senha e sem sessão: simplesmente não mostra.
+  async fetchClientScanStats(clientCode) {
+    if (this._scanStatsUnavailable || !clientCode) return false;
+    this.clientScanStats = this.clientScanStats || {};
+    this._clientScanStatsInFlight = this._clientScanStatsInFlight || {};
+
+    const cached = this.clientScanStats[clientCode];
+    if (cached && Date.now() - cached.fetchedAt < 60000) return false;
+    if (this._clientScanStatsInFlight[clientCode]) return this._clientScanStatsInFlight[clientCode];
+
+    this._clientScanStatsInFlight[clientCode] = (async () => {
+      try {
+        const session = this.getClientSessionInfo();
+        let data = null;
+
+        if (session && session.token && String(session.code) === String(clientCode)) {
+          try {
+            data = await this.callRpc('public_get_client_scan_stats_by_session', { p_token: session.token, p_days: 45 }, 8000);
+          } catch (err) {
+            if (isMissingRpcError(err)) throw err;
+          }
+        }
+        if (!data) {
+          data = await this.callRpc('public_get_client_scan_stats', { p_query: clientCode, p_days: 45 }, 8000);
+        }
+
+        this.clientScanStats[clientCode] = {
+          since: (data && data.since) || null,
+          rows: Array.isArray(data && data.rows) ? data.rows : [],
+          fetchedAt: Date.now()
+        };
+        return true;
+      } catch (err) {
+        if (isMissingRpcError(err)) this._scanStatsUnavailable = true;
+        // Ex.: conta com senha e sem sessão (PASSWORD_REQUIRED). Cacheia a falha.
+        this.clientScanStats[clientCode] = { since: null, rows: null, fetchedAt: Date.now(), failed: true };
+        return false;
+      } finally {
+        delete this._clientScanStatsInFlight[clientCode];
+      }
+    })();
+    return this._clientScanStatsInFlight[clientCode];
+  }
+
   // Métricas analíticas completas para o Dashboard do Dono
   getDashboardMetrics(daysCount = 14) {
     const isTodayMode = parseInt(daysCount, 10) === 1;
     const days = isTodayMode ? 1 : Math.max(3, Math.min(60, parseInt(daysCount, 10) || 14));
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = toLocalDateKey(now);
     
     const yesterdayDate = new Date(now);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+    const yesterdayStr = toLocalDateKey(yesterdayDate);
 
     const timelineMap = new Map();
     const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -1270,7 +1441,7 @@ class StorageService {
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
-        const isoDate = d.toISOString().split('T')[0];
+        const isoDate = toLocalDateKey(d);
         const parts = isoDate.split('-');
         const formattedDayMonth = `${parts[2]}/${parts[1]}`;
         const dayName = dayNames[d.getDay()];
@@ -1314,7 +1485,7 @@ class StorageService {
 
         let wasActivatedToday = false;
         if (p.activated_at) {
-          const actDate = p.activated_at.split('T')[0];
+          const actDate = toLocalDateKey(p.activated_at);
           if (actDate === todayStr) {
             todayActivations++;
             wasActivatedToday = true;
@@ -1348,6 +1519,8 @@ class StorageService {
             todayActiveCount: 0,
             todayScans: 0,
             totalScans: 0,
+            latestScanMs: 0,
+            latestScanAt: null,
             latestActivation: p.activated_at || p.created_at || ''
           };
           clientsMap.set(clientKey, clientStat);
@@ -1356,6 +1529,13 @@ class StorageService {
         clientStat.activeCount++;
         if (wasActivatedToday) clientStat.todayActiveCount++;
         clientStat.totalScans += scans;
+        if (p.last_scan_at) {
+          const scanMs = Date.parse(p.last_scan_at);
+          if (!Number.isNaN(scanMs) && scanMs > clientStat.latestScanMs) {
+            clientStat.latestScanMs = scanMs;
+            clientStat.latestScanAt = p.last_scan_at;
+          }
+        }
         if (p.activated_at && (!clientStat.latestActivation || p.activated_at > clientStat.latestActivation)) {
           clientStat.latestActivation = p.activated_at;
         }
@@ -1364,7 +1544,7 @@ class StorageService {
       }
 
       if (p.last_scan_at) {
-        const scanDate = p.last_scan_at.split('T')[0];
+        const scanDate = toLocalDateKey(p.last_scan_at);
         if (scanDate === todayStr) {
           todayScans += scans || 1;
           if (isTodayMode) {
@@ -1381,7 +1561,42 @@ class StorageService {
       }
     }
 
-    // Ranking ordenado de clientes (se for modo hoje, prioriza quem teve atividade hoje)
+    // Histórico real (scan_events): substitui a aproximação por "última leitura"
+    // (que jogava o total acumulado da placa inteiro no dia da última leitura).
+    const eventStats = this.adminScanStats;
+    let scanSource = 'estimate';
+    let scanHistorySince = null;
+    let yesterdayNoHistory = false;
+    if (eventStats && Array.isArray(eventStats.rows)) {
+      scanSource = 'events';
+      scanHistorySince = eventStats.since || null;
+      const sinceKey = scanHistorySince ? toLocalDateKey(scanHistorySince) : null;
+
+      timelineMap.forEach(slot => { slot.scans = 0; });
+      todayScans = 0;
+      yesterdayScans = 0;
+
+      for (const r of eventStats.rows) {
+        const n = Number(r.n) || 0;
+        if (r.d === todayStr) {
+          todayScans += n;
+          if (isTodayMode) {
+            const slot = timelineMap.get(String(Math.min(7, Math.floor(Number(r.h) / 3))));
+            if (slot) slot.scans += n;
+          }
+        }
+        if (r.d === yesterdayStr) yesterdayScans += n;
+        if (!isTodayMode && timelineMap.has(r.d)) timelineMap.get(r.d).scans += n;
+      }
+
+      // Dias anteriores ao início do histórico: sem dado (não é "zero leituras")
+      if (!isTodayMode) {
+        timelineMap.forEach(slot => { slot.noHistory = !sinceKey || slot.date < sinceKey; });
+      }
+      yesterdayNoHistory = !sinceKey || yesterdayStr < sinceKey;
+    }
+
+    // Ranking ordenado de clientes
     const topClients = Array.from(clientsMap.values())
       .sort((a, b) => {
         if (isTodayMode) {
@@ -1395,16 +1610,92 @@ class StorageService {
         percentOfTotalActive: totalActive > 0 ? ((c.activeCount / totalActive) * 100).toFixed(1) : '0.0'
       }));
 
-    // Distribuição por Lotes
+    // CIÊNCIA DE DADOS ADMIN: Radar de Saúde da Carteira & Detector de Churn
+    const nowTimestamp = now.getTime();
+    const clientHealthMatrix = {
+      power: [],       // Campeões / Power Users
+      accelerating: [],// Acelerando / Recentes
+      stable: [],      // Estáveis / Regulares
+      atRisk: []       // Em Risco / Dormentes (7+ dias sem leitura)
+    };
+
+    // Telefone no formato do wa.me: DDI 55 só é prefixado quando o número
+    // ainda não o tem (12+ dígitos). Número com 10/11 dígitos que começa
+    // com "55" é DDD 55 (RS), não DDI.
+    const toWhatsAppNumber = (rawPhone) => {
+      const digits = String(rawPhone || '').replace(/\D/g, '');
+      if (digits.length < 10) return '';
+      return digits.length >= 12 && digits.startsWith('55') ? digits : `55${digits}`;
+    };
+    const firstName = (fullName) => String(fullName || '').trim().split(/\s+/)[0] || 'cliente';
+
+    topClients.forEach(c => {
+      // Última leitura já agregada no loop principal (O(N)), por cliente
+      const daysSinceScan = c.latestScanMs > 0
+        ? Math.max(0, Math.floor((nowTimestamp - c.latestScanMs) / (1000 * 60 * 60 * 24)))
+        : null;
+
+      // Dormência vem primeiro: um cliente com muitas leituras históricas
+      // mas parado há semanas precisa aparecer em "Em Risco", não em "Campeão".
+      let category;
+      let waMessage;
+      const nome = firstName(c.name);
+      if (daysSinceScan === null) {
+        category = 'atRisk';
+        waMessage = `Olá ${nome}! Aqui é do Rei do NFC. Sua plaquinha ainda não registrou nenhuma leitura. Posso te ajudar a testar e a escolher o melhor lugar para ela no balcão?`;
+      } else if (daysSinceScan > 7) {
+        category = 'atRisk';
+        waMessage = `Olá ${nome}! Aqui é do Rei do NFC. Vi que sua plaquinha está sem leituras há ${daysSinceScan} dias. Está tudo certo por aí? Posso te ajudar a conferir o link ou o posicionamento dela.`;
+      } else if (c.totalScans >= 40) {
+        category = 'power';
+        waMessage = `Olá ${nome}! Aqui é do Rei do NFC. Sua empresa já passou de ${c.totalScans} leituras! Se quiser, posso te passar condições para colocar plaquinhas em outras mesas ou filiais.`;
+      } else if (daysSinceScan <= 3) {
+        category = 'accelerating';
+        waMessage = `Olá ${nome}, tudo bem? Aqui é do Rei do NFC. Sua plaquinha teve leituras nos últimos dias. Se precisar ajustar o link de destino, é só chamar!`;
+      } else {
+        category = 'stable';
+        waMessage = `Olá ${nome}! Aqui é do Rei do NFC, passando para saber se está tudo certo com a sua plaquinha.`;
+      }
+
+      const waNumber = toWhatsAppNumber(c.phone);
+      clientHealthMatrix[category].push({
+        ...c,
+        category,
+        daysSinceScan,
+        latestScanStr: c.latestScanAt,
+        whatsappUrl: waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null
+      });
+    });
+
+    // CIÊNCIA DE DADOS ADMIN: Curva de Pareto (80/20)
+    let paretoShare = '0.0';
+    const clientsScansTotal = topClients.reduce((sum, c) => sum + (c.totalScans || 0), 0);
+    if (topClients.length > 0 && clientsScansTotal > 0) {
+      const byScans = topClients.slice().sort((a, b) => (b.totalScans || 0) - (a.totalScans || 0));
+      const top20Count = Math.max(1, Math.ceil(byScans.length * 0.2));
+      const top20Scans = byScans.slice(0, top20Count).reduce((sum, c) => sum + (c.totalScans || 0), 0);
+      paretoShare = ((top20Scans / clientsScansTotal) * 100).toFixed(1);
+    }
+
+    // CIÊNCIA DE DADOS ADMIN: Liquidez de Lotes & Burn Rate
     const batches = this.getBatches();
-    const batchDistribution = batches.map(b => ({
-      name: b.name,
-      total: b.count,
-      active: b.active,
-      virgin: b.virgin,
-      totalScans: b.totalScans,
-      percentActive: b.count > 0 ? ((b.active / b.count) * 100).toFixed(1) : '0.0'
-    }));
+    const dailyActivationsRate = Math.max(0.2, (todayActivations + yesterdayActivations) / 2 || 0.5);
+    const batchDistribution = batches.map(b => {
+      const daysOfInventory = b.virgin > 0 ? Math.round(b.virgin / dailyActivationsRate) : 0;
+      return {
+        name: b.name,
+        total: b.count,
+        active: b.active,
+        virgin: b.virgin,
+        totalScans: b.totalScans,
+        percentActive: b.count > 0 ? ((b.active / b.count) * 100).toFixed(1) : '0.0',
+        burnRateDaysRemaining: daysOfInventory,
+        isStockLow: b.virgin <= 5 && b.count > 0
+      };
+    });
+
+    // Estimativa de Reviews no Google de Toda a Rede
+    const networkEstimatedReviews = Math.round(totalScans * 0.22);
 
     // Últimas ativações ordenadas decrescente
     const recentActivations = activePlaquesList
@@ -1430,7 +1721,233 @@ class StorageService {
       topClients,
       uniqueActiveClients: clientsMap.size,
       batchDistribution,
-      recentActivations
+      recentActivations,
+      clientHealthMatrix,
+      paretoShare,
+      networkEstimatedReviews,
+      scanSource,
+      scanHistorySince,
+      yesterdayNoHistory
+    };
+  }
+
+  // Estatísticas do portal do cliente. Usa só dados que realmente existem:
+  // scans_count, last_scan_at, activated_at e, quando o histórico (scan_events)
+  // já estiver ativo, leituras por dia/hora. Não há dado por canal (NFC/QR) nem
+  // taxa real de avaliações no Google, então nada aqui finge medir isso.
+  getClientAnalytics(codeOrPhone) {
+    const client = this.getClientByCode(codeOrPhone);
+    if (!client) return null;
+
+    const DAY_MS = 1000 * 60 * 60 * 24;
+    const nowMs = Date.now();
+    const plaques = client.plaques || [];
+    const activePlaques = plaques.filter(p => p.status === 'active');
+    const virginPlaques = plaques.filter(p => p.status === 'virgin');
+    const totalScans = plaques.reduce((acc, p) => acc + (p.scans_count || 0), 0);
+
+    const daysSince = (iso) => {
+      const ms = iso ? Date.parse(iso) : NaN;
+      return Number.isNaN(ms) ? null : Math.max(0, Math.floor((nowMs - ms) / DAY_MS));
+    };
+
+    // Saúde de cada placa: a recência da última leitura manda, não o total
+    // histórico (uma placa com 100 leituras parada há 2 meses não é "ótima").
+    const plaqueHealth = plaques.map(p => {
+      const scans = p.scans_count || 0;
+      let status = 'virgin';
+      let score = 0;
+      let badgeClass = 'badge-virgin';
+      let statusLabel = 'Virgem';
+      let recommendation = 'Vincule seu link do Google para começar a receber leituras';
+
+      if (p.status === 'active') {
+        const days = daysSince(p.last_scan_at);
+        if (scans === 0) {
+          status = 'attention';
+          score = 20;
+          statusLabel = '○ Aguardando 1ª Leitura';
+          recommendation = 'Faça um teste você mesmo aproximando o celular.';
+        } else if (days !== null && days <= 2) {
+          status = 'optimal';
+          score = 95;
+          badgeClass = 'badge-active';
+          statusLabel = '● Alta Atividade';
+          recommendation = 'Excelente ponto físico. Mantenha a plaquinha limpa e visível.';
+        } else if (days !== null && days <= 7) {
+          status = 'steady';
+          score = 75;
+          badgeClass = 'badge-active';
+          statusLabel = '● Fluxo Regular';
+          recommendation = 'Apresente a placa aos clientes no momento do pagamento.';
+        } else {
+          status = 'dormant';
+          score = 35;
+          statusLabel = '○ Sem Leituras (+7d)';
+          recommendation = 'Aproxime a plaquinha do caixa ou coloque sobre a mesa mais movimentada.';
+        }
+      }
+
+      return {
+        id: p.id,
+        name: p.name || 'Plaquinha ' + p.id,
+        status,
+        score,
+        badgeClass,
+        statusLabel,
+        recommendation,
+        scans,
+        lastScanAt: p.last_scan_at,
+        targetUrl: p.target_url
+      };
+    });
+
+    // Ranking real de leituras por plaquinha (só as que já foram lidas)
+    const maxPlaqueScans = Math.max(1, ...plaqueHealth.map(ph => ph.scans));
+    const plaqueRanking = plaqueHealth
+      .filter(ph => ph.scans > 0)
+      .sort((a, b) => b.scans - a.scans)
+      .slice(0, 5)
+      .map(ph => ({
+        ...ph,
+        percentOfTotal: totalScans > 0 ? Math.round((ph.scans / totalScans) * 100) : 0,
+        barPercent: Math.round((ph.scans / maxPlaqueScans) * 100)
+      }));
+
+    // Próximo marco de leituras + previsão pelo ritmo médio desde a ativação
+    let targetGoal = 25;
+    if (totalScans >= 25 && totalScans < 50) targetGoal = 50;
+    else if (totalScans >= 50 && totalScans < 100) targetGoal = 100;
+    else if (totalScans >= 100 && totalScans < 250) targetGoal = 250;
+    else if (totalScans >= 250 && totalScans < 500) targetGoal = 500;
+    else if (totalScans >= 500) targetGoal = Math.ceil((totalScans + 100) / 100) * 100;
+
+    const scansRemaining = Math.max(0, targetGoal - totalScans);
+    const progressPercent = Math.min(100, Math.round((totalScans / targetGoal) * 100));
+
+    const activationTimes = activePlaques
+      .map(p => (p.activated_at ? Date.parse(p.activated_at) : NaN))
+      .filter(ms => !Number.isNaN(ms));
+    const daysActive = activationTimes.length > 0
+      ? Math.max(1, Math.ceil((nowMs - Math.min(...activationTimes)) / DAY_MS))
+      : null;
+    const dailyVelocity = daysActive && totalScans > 0 ? totalScans / daysActive : 0;
+    let daysToGoal = dailyVelocity > 0 ? Math.ceil(scansRemaining / dailyVelocity) : null;
+    if (daysToGoal !== null && daysToGoal > 365) daysToGoal = null;
+
+    // Histórico real de leituras (scan_events), quando disponível
+    const events = summarizeScanEvents(this.clientScanStats && this.clientScanStats[client.client_code]);
+    let scanHistory = { available: false };
+    if (events) {
+      let growthPercent = null;
+      if (events.daysTracked >= 14 && events.prev7 > 0) {
+        growthPercent = Math.round(((events.last7 - events.prev7) / events.prev7) * 100);
+      }
+
+      let dayparts = null;
+      if (events.total >= MIN_EVENTS_FOR_DAYPARTS) {
+        const sum = (from, to) => events.byHour.slice(from, to).reduce((a, b) => a + b, 0);
+        const bands = [
+          { id: 'morning', label: 'Manhã', range: '06h–11h', count: sum(6, 11) },
+          { id: 'lunch', label: 'Almoço', range: '11h–15h', count: sum(11, 15) },
+          { id: 'afternoon', label: 'Tarde', range: '15h–18h', count: sum(15, 18) },
+          { id: 'evening', label: 'Noite / Madrugada', range: '18h–06h', count: sum(18, 24) + sum(0, 6) }
+        ];
+        const peakCount = Math.max(...bands.map(b => b.count));
+        dayparts = bands.map(b => ({
+          ...b,
+          percent: Math.round((b.count / events.total) * 100),
+          isPeak: peakCount > 0 && b.count === peakCount
+        }));
+      }
+
+      scanHistory = {
+        available: true,
+        since: events.sinceKey,
+        sinceLabel: formatDayKeyShort(events.sinceKey),
+        daysTracked: events.daysTracked,
+        total: events.total,
+        last7: events.last7,
+        growthPercent,
+        dayparts,
+        minForDayparts: MIN_EVENTS_FOR_DAYPARTS
+      };
+    }
+
+    // Insights em linguagem natural — só fatos que os dados sustentam
+    const insights = [];
+    if (totalScans > 0) {
+      const scanAges = plaques.map(p => daysSince(p.last_scan_at)).filter(d => d !== null);
+      if (scanAges.length > 0) {
+        const newestScanDays = Math.min(...scanAges);
+        insights.push({
+          icon: 'clock',
+          title: 'Última Leitura',
+          desc: newestScanDays === 0
+            ? 'Suas plaquinhas foram lidas hoje.'
+            : `A última leitura foi há ${newestScanDays} dia${newestScanDays === 1 ? '' : 's'}.`
+        });
+      }
+
+      const topPlaque = plaqueRanking[0];
+      if (topPlaque && activePlaques.length > 1) {
+        insights.push({
+          icon: 'award',
+          title: 'Ponto Físico Líder',
+          desc: `A plaquinha "${topPlaque.name}" concentra ${topPlaque.percentOfTotal}% das suas leituras.`
+        });
+      }
+
+      const dormantCount = plaqueHealth.filter(ph => ph.status === 'dormant').length;
+      if (dormantCount > 0) {
+        insights.push({
+          icon: 'info',
+          title: 'Plaquinhas Paradas',
+          desc: `${dormantCount} plaquinha${dormantCount === 1 ? ' está' : 's estão'} sem leituras há mais de 7 dias. Vale reposicionar mais perto do caixa.`
+        });
+      }
+
+      const peakBand = scanHistory.dayparts && scanHistory.dayparts.find(b => b.isPeak);
+      if (peakBand) {
+        insights.push({
+          icon: 'clock',
+          title: 'Horário de Maior Movimento',
+          desc: `${peakBand.label} (${peakBand.range}) concentra ${peakBand.percent}% das leituras registradas desde ${scanHistory.sinceLabel}.`
+        });
+      }
+
+      if (daysToGoal !== null) {
+        insights.push({
+          icon: 'trendingUp',
+          title: 'Previsão do Próximo Marco',
+          desc: `No ritmo médio desde a ativação (${dailyVelocity.toFixed(1)} leituras/dia), você deve chegar a ${targetGoal} leituras em cerca de ${daysToGoal} dia${daysToGoal === 1 ? '' : 's'}.`
+        });
+      }
+    } else {
+      insights.push({
+        icon: 'info',
+        title: 'Como Iniciar a Captação',
+        desc: 'Posicione sua plaquinha próxima ao caixa e instrua seus atendentes a pedir 5 estrelas no momento de pagar a conta.'
+      });
+    }
+
+    return {
+      client,
+      totalPlaques: plaques.length,
+      activeCount: activePlaques.length,
+      virginCount: virginPlaques.length,
+      totalScans,
+      scanHistory,
+      plaqueHealth,
+      plaqueRanking,
+      milestone: {
+        current: totalScans,
+        target: targetGoal,
+        remaining: scansRemaining,
+        percent: progressPercent,
+        estimatedDays: daysToGoal
+      },
+      insights
     };
   }
 
