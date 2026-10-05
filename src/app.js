@@ -1,6 +1,8 @@
 import './index.css';
+import './theme-fasto.css';
 import { storage } from './services/storage.js';
 import { renderSidebar } from './components/Sidebar.js';
+import { renderTopbar } from './components/Topbar.js';
 import { renderBatchFoldersView } from './components/BatchFoldersView.js';
 import { renderClientsView } from './components/ClientsView.js';
 import { renderClientPortalView } from './components/ClientPortalView.js';
@@ -162,8 +164,11 @@ function renderLoadingScreen(title = 'Carregando...', subtitle = '') {
 
 // Atualiza só o texto de "Atualizando… / Atualizado às HH:MM" na barra lateral
 function updateSyncIndicator() {
+  const label = storage.getSyncLabel();
   const el = document.getElementById('sync-status-text');
-  if (el) el.textContent = storage.getSyncLabel();
+  if (el) el.textContent = label;
+  const top = document.getElementById('topbar-sync-text');
+  if (top) top.textContent = label || 'Dados carregados';
 }
 
 // Busca o histórico real de leituras em segundo plano e redesenha a tela só
@@ -435,6 +440,7 @@ async function renderApp() {
       <div class="app-layout">
         ${renderSidebar(route.name)}
         <div class="main-wrapper">
+          ${renderTopbar()}
           <main style="flex: 1;">${mainContentHtml}</main>
           <footer style="border-top: 1px solid #E2E8F0; padding: 1.25rem 0; background: #FFFFFF;" class="no-print">
             <div class="container" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); flex-wrap: wrap; gap: 8px;">
@@ -482,6 +488,21 @@ async function renderApp() {
 // Configuração de Eventos
 function setupEventListeners() {
   const modalContainer = document.getElementById('modal-container');
+
+  // Busca da barra superior: abre o Inventário de Placas já filtrado
+  const formTopbarSearch = document.getElementById('form-topbar-search');
+  if (formTopbarSearch) {
+    formTopbarSearch.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const term = (document.getElementById('topbar-search-input')?.value || '').trim();
+      if (!term) return;
+      state.plaqueSearch = term;
+      state.plaqueFilter = 'all';
+      state.plaquePage = 1;
+      if (window.location.hash === '#/todas-placas') renderApp();
+      else window.location.hash = '#/todas-placas';
+    });
+  }
 
   // Controle do Menu Lateral no Mobile
   const btnToggleMobile = document.getElementById('btn-toggle-mobile-sidebar');

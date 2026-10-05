@@ -79,113 +79,41 @@ export function renderDashboardView(options = {}) {
     <!-- Corpo com Espaçamento Otimizado -->
     <div class="content-body" style="padding: 1.25rem;">
       
-      <!-- 4 CARDS DE KPIs PRECISOS -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
-        
-        <!-- Card 1: Leituras / Scans -->
-        <div class="card" style="padding: 0.85rem 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Leituras Totais</span>
-              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
-                ${metrics.totalScans.toLocaleString('pt-BR')}
-              </div>
-            </div>
-            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
-              ${getIcon('qr', '', 14)}
-            </div>
-          </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
-            <span class="badge ${metrics.todayScans > 0 ? 'badge-active' : 'badge-virgin'}">
-              ${metrics.todayScans > 0 ? '+' : ''}${metrics.todayScans} hoje
-            </span>
-            <span style="color: var(--text-muted); font-size: 0.6875rem;">Ontem: ${metrics.yesterdayNoHistory ? '—' : metrics.yesterdayScans}</span>
-          </div>
-        </div>
+      <!-- CARDS DE KPIs: borda colorida no topo, número grande, ícone à direita -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
 
-        <!-- Card 2: Placas Ativadas -->
-        <div class="card" style="padding: 0.85rem 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Placas em Uso</span>
-              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
-                ${metrics.totalActive.toLocaleString('pt-BR')}
-              </div>
-            </div>
-            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
-              ${getIcon('zap', '', 14)}
-            </div>
-          </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
-            <span class="badge badge-active">
-              ${metrics.activationRate}% da frota
-            </span>
-            <span style="color: var(--text-muted); font-size: 0.6875rem;">+${metrics.todayActivations} hoje</span>
-          </div>
-        </div>
+        ${renderKpiCard({
+          color: 'purple', icon: 'qr', value: metrics.totalScans.toLocaleString('pt-BR'), label: 'Leituras Totais',
+          footer: `
+            <span class="badge ${metrics.todayScans > 0 ? 'badge-active' : 'badge-virgin'}">${metrics.todayScans > 0 ? '+' : ''}${metrics.todayScans} hoje</span>
+            <span style="color: var(--text-muted);">Ontem: ${metrics.yesterdayNoHistory ? '—' : metrics.yesterdayScans}</span>`
+        })}
 
-        <!-- Card 3: Clientes Únicos -->
-        <div class="card" style="padding: 0.85rem 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Clientes com Placas</span>
-              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
-                ${metrics.uniqueActiveClients}
-              </div>
-            </div>
-            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
-              ${getIcon('users', '', 14)}
-            </div>
-          </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
-            <a href="#/clientes" style="color: var(--text-muted); font-weight: 500; font-size: 0.6875rem; text-decoration: none; display: inline-flex; align-items: center; gap: 3px;">
-              <span>Ver diretório completo</span>
-              ${getIcon('arrowright', '', 10)}
-            </a>
-          </div>
-        </div>
+        ${renderKpiCard({
+          color: 'amber', icon: 'zap', value: metrics.totalActive.toLocaleString('pt-BR'), label: 'Placas em Uso',
+          footer: `
+            <span class="badge badge-active">${metrics.activationRate}% da frota</span>
+            <span style="color: var(--text-muted);">+${metrics.todayActivations} hoje</span>`
+        })}
 
-        <!-- Card 4: Top Ativador Líder -->
-        <div class="card" style="padding: 0.85rem 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Parceiro Destaque</span>
-              <div style="font-size: 1rem; font-weight: 600; color: var(--text-main); line-height: 1.25; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;" title="${escapeHtml(top1 ? top1.name : 'Nenhum')}">
-                ${escapeHtml(top1 ? top1.name : 'Nenhum')}
-              </div>
-            </div>
-            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--bg-subtle); border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center;">
-              ${getIcon('award', '', 14)}
-            </div>
-          </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
-            <span class="badge badge-virgin">
-              ${top1 ? top1.activeCount : 0} placas
-            </span>
-            <span style="color: var(--text-muted); font-size: 0.6875rem;">${top1 ? top1.totalScans : 0} leituras</span>
-          </div>
-        </div>
+        ${renderKpiCard({
+          color: 'indigo', icon: 'users', value: String(metrics.uniqueActiveClients), label: 'Clientes com Placas',
+          footer: `<a href="#/clientes" style="color: var(--kpi-indigo); font-weight: 600; display: inline-flex; align-items: center; gap: 3px;"><span>Ver diretório completo</span>${getIcon('arrowright', '', 11)}</a>`
+        })}
 
-        <!-- Card 5: CIÊNCIA DE DADOS - Reviews Google Gerados & Pareto 80/20 -->
-        <div class="card" style="padding: 0.85rem 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-              <span style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-emerald); font-family: var(--font-mono);">Reviews Google Estimados</span>
-              <div class="num-tabular" style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.15; margin-top: 3px; letter-spacing: -0.02em;">
-                ~${(metrics.networkEstimatedReviews || 0).toLocaleString('pt-BR')}
-              </div>
-            </div>
-            <div style="width: 28px; height: 28px; border-radius: var(--radius-sm); background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; display: flex; align-items: center; justify-content: center;">
-              ${getIcon('star', '', 14)}
-            </div>
-          </div>
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
-            <span class="badge badge-active" title="Os 20% de clientes com mais leituras geram esta fatia do total de leituras">
-              Pareto: ${metrics.paretoShare || '0.0'}%
-            </span>
-            <span style="color: var(--text-muted); font-size: 0.6875rem;">~22% conversão de scans</span>
-          </div>
-        </div>
+        ${renderKpiCard({
+          color: 'blue', icon: 'award', value: escapeHtml(top1 ? top1.name : 'Nenhum'), label: 'Parceiro Destaque', textValue: true,
+          footer: `
+            <span class="badge badge-virgin">${top1 ? top1.activeCount : 0} placas</span>
+            <span style="color: var(--text-muted);">${top1 ? top1.totalScans : 0} leituras</span>`
+        })}
+
+        ${renderKpiCard({
+          color: 'green', icon: 'star', value: `~${(metrics.networkEstimatedReviews || 0).toLocaleString('pt-BR')}`, label: 'Reviews Google Estimados',
+          footer: `
+            <span class="badge badge-active" title="Os 20% de clientes com mais leituras geram esta fatia do total de leituras">Pareto: ${metrics.paretoShare || '0.0'}%</span>
+            <span style="color: var(--text-muted);">~22% das leituras</span>`
+        })}
 
       </div>
 
@@ -229,11 +157,11 @@ export function renderDashboardView(options = {}) {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color); font-size: 0.6875rem; color: var(--text-muted); font-family: var(--font-mono);">
             <div style="display: flex; align-items: center; gap: 1rem;">
               <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="width: 8px; height: 8px; border-radius: 2px; background: #0F172A;"></span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #0B5FFF;"></span>
                 <span>Leituras (Scans)</span>
               </div>
               <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="width: 8px; height: 8px; border-radius: 2px; background: #059669;"></span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #F5A524;"></span>
                 <span>Novas Placas</span>
               </div>
             </div>
@@ -260,9 +188,9 @@ export function renderDashboardView(options = {}) {
               <div style="position: relative; width: 96px; height: 96px;">
                 <svg width="96" height="96" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
                   <!-- Background Track -->
-                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#E5E7EB" stroke-width="8"></circle>
+                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#E8F0FD" stroke-width="8"></circle>
                   <!-- Active Slice -->
-                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#0F172A" stroke-width="8"
+                  <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="#0B5FFF" stroke-width="8"
                     stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round" style="transition: stroke-dashoffset 0.5s ease;"></circle>
                 </svg>
 
@@ -441,7 +369,7 @@ export function renderDashboardView(options = {}) {
                   </div>
 
                   <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden; margin-bottom: 4px;">
-                    <div style="width: ${pct}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
+                    <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #4D86FF, #0B5FFF); border-radius: 999px;"></div>
                   </div>
 
                   <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">
@@ -495,6 +423,22 @@ export function renderDashboardView(options = {}) {
 
       </div>
 
+    </div>
+  `;
+}
+
+// Cartão de KPI (borda colorida no topo, número grande, ícone à direita)
+function renderKpiCard({ color, icon, value, label, footer = '', textValue = false }) {
+  return `
+    <div class="card kpi-card kpi-${color}">
+      <div class="kpi-top">
+        <div style="min-width: 0;">
+          <div class="kpi-value ${textValue ? 'kpi-value-text' : ''}" ${textValue ? `title="${value}"` : ''}>${value}</div>
+          <div class="kpi-label">${label}</div>
+        </div>
+        <div class="kpi-icon">${getIcon(icon, '', 18)}</div>
+      </div>
+      ${footer ? `<div class="kpi-footer">${footer}</div>` : ''}
     </div>
   `;
 }
@@ -597,7 +541,7 @@ function renderLeaderboardRows(clients) {
         <td>
           <div style="display: flex; align-items: center; gap: 6px;">
             <div style="flex: 1; height: 4px; background: var(--bg-subtle); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${barWidth}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
+              <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #4D86FF, #0B5FFF); border-radius: 999px;"></div>
             </div>
             <span class="num-tabular" style="font-size: 0.625rem; font-family: var(--font-mono); color: var(--text-muted); width: 28px; text-align: right;">${c.percentOfTotalActive}%</span>
           </div>
@@ -750,12 +694,14 @@ function renderTimelineSvgChart(timeline, maxVal, activeSeries) {
     if (activeSeries === 'scans') {
       const centerX = x + (colWidth - barWidth) / 2;
       barsContent = `
-        <rect x="${centerX}" y="${scansY}" width="${barWidth}" height="${scansHeight}" rx="2" fill="#0F172A" />
+        <rect x="${centerX}" y="${paddingTop}" width="${barWidth}" height="${chartHeight}" rx="${barWidth / 2}" fill="#EEF3FD" />
+        <rect x="${centerX}" y="${scansY}" width="${barWidth}" height="${scansHeight}" rx="${barWidth / 2}" fill="#0B5FFF" />
       `;
     } else if (activeSeries === 'activations') {
       const centerX = x + (colWidth - barWidth) / 2;
       barsContent = `
-        <rect x="${centerX}" y="${actY}" width="${barWidth}" height="${actHeight}" rx="2" fill="#059669" />
+        <rect x="${centerX}" y="${paddingTop}" width="${barWidth}" height="${chartHeight}" rx="${barWidth / 2}" fill="#EEF3FD" />
+        <rect x="${centerX}" y="${actY}" width="${barWidth}" height="${actHeight}" rx="${barWidth / 2}" fill="#F5A524" />
       `;
     } else {
       // Ambos lado a lado
@@ -764,8 +710,10 @@ function renderTimelineSvgChart(timeline, maxVal, activeSeries) {
       const x2 = x + (colWidth / 2) + 1;
 
       barsContent = `
-        <rect x="${x1}" y="${scansY}" width="${halfWidth}" height="${scansHeight}" rx="1.5" fill="#0F172A" />
-        <rect x="${x2}" y="${actY}" width="${halfWidth}" height="${actHeight}" rx="1.5" fill="#059669" />
+        <rect x="${x1}" y="${paddingTop}" width="${halfWidth}" height="${chartHeight}" rx="${halfWidth / 2}" fill="#EEF3FD" />
+        <rect x="${x2}" y="${paddingTop}" width="${halfWidth}" height="${chartHeight}" rx="${halfWidth / 2}" fill="#EEF3FD" />
+        <rect x="${x1}" y="${scansY}" width="${halfWidth}" height="${scansHeight}" rx="${halfWidth / 2}" fill="#0B5FFF" />
+        <rect x="${x2}" y="${actY}" width="${halfWidth}" height="${actHeight}" rx="${halfWidth / 2}" fill="#F5A524" />
       `;
     }
 
@@ -779,7 +727,7 @@ function renderTimelineSvgChart(timeline, maxVal, activeSeries) {
           <title>${item.label}: ${item.noHistory ? 'sem histórico detalhado' : `${item.scans} leituras`} | ${item.activations} ativações</title>
         </rect>
         ${barsContent}
-        <text x="${labelX}" y="${labelY}" fill="${isToday ? '#0F172A' : '#6B7280'}" font-size="9" font-weight="${isToday ? '700' : '500'}" text-anchor="middle" font-family="'JetBrains Mono', monospace">
+        <text x="${labelX}" y="${labelY}" fill="${isToday ? '#0B5FFF' : '#5B6B86'}" font-size="9" font-weight="${isToday ? '700' : '500'}" text-anchor="middle" font-family="'JetBrains Mono', monospace">
           ${item.shortLabel}
         </text>
       </g>

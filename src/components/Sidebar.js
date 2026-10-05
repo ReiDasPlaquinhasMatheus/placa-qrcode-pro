@@ -1,6 +1,5 @@
 import { storage } from '../services/storage.js';
 import { getIcon } from '../utils/icons.js';
-import { getEnvLabel } from '../utils/helpers.js';
 
 export function renderSidebar(activeRoute = 'lotes') {
   const stats = storage.getStats();
@@ -14,7 +13,6 @@ export function renderSidebar(activeRoute = 'lotes') {
       <a href="#/lotes" style="font-weight: 700; font-size: 0.9375rem; color: #FFFFFF; display: flex; align-items: center; gap: 8px; text-decoration: none;">
         <img src="/logo.png" alt="Rei do NFC" style="height: 28px; width: 28px; object-fit: contain;" />
         <span style="letter-spacing: -0.01em;">REI DO NFC</span>
-        <span class="sidebar-brand-badge">${getEnvLabel()}</span>
       </a>
       <button id="btn-toggle-mobile-sidebar" class="btn btn-ghost btn-sm" style="color: #FFFFFF; padding: 4px 6px;">
         ${getIcon('menu', '', 18)}
@@ -30,11 +28,10 @@ export function renderSidebar(activeRoute = 'lotes') {
       <!-- Topo / Marca -->
       <div class="sidebar-header">
         <a href="#/lotes" class="sidebar-brand" style="text-decoration: none;">
-          <img src="/logo.png" alt="Rei do NFC" style="width: 32px; height: 32px; object-fit: contain; flex-shrink: 0;" />
+          <span class="sidebar-brand-logo"><img src="/logo.png" alt="Rei do NFC" /></span>
           <div style="overflow: hidden;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="line-height: 1.15; font-weight: 700; font-size: 0.9375rem; color: #FFFFFF; letter-spacing: -0.01em;">REI DO NFC</span>
-              <span class="sidebar-brand-badge">${getEnvLabel()}</span>
             </div>
             <div style="font-size: 0.625rem; color: #94A3B8; font-weight: 500; font-family: var(--font-mono); letter-spacing: 0.02em; margin-top: 2px;">Hardware & QR OS</div>
           </div>
@@ -43,6 +40,11 @@ export function renderSidebar(activeRoute = 'lotes') {
           ${getIcon('close', '', 16)}
         </button>
       </div>
+
+      <a href="#/gerador" class="sidebar-cta" id="sidebar-cta-new-batch">
+        ${getIcon('plus', '', 15)}
+        <span>Emitir Novo Lote</span>
+      </a>
 
       <!-- Navegação Principal -->
       <nav class="sidebar-nav">
@@ -75,11 +77,6 @@ export function renderSidebar(activeRoute = 'lotes') {
         </a>
 
         <div class="nav-section-title" style="margin-top: 0.5rem;">Fábrica & Operação</div>
-
-        <a href="#/gerador" class="nav-item ${activeRoute === 'gerador' ? 'active' : ''}">
-          <span class="nav-item-icon">${getIcon('plus', '', 16)}</span>
-          <span>Emitir Novo Lote</span>
-        </a>
 
         <a href="#/ajuda-google" class="nav-item ${activeRoute === 'ajuda-google' ? 'active' : ''}">
           <span class="nav-item-icon">${getIcon('star', '', 16)}</span>

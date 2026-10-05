@@ -12,20 +12,16 @@ function renderClientPortalLoginStyles() {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #090D16;
-        background-image: 
-          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-        background-size: 32px 32px;
+        background: linear-gradient(135deg, #5AA0FF 0%, #2B73F0 48%, #1448C8 100%);
         padding: 2rem 1.25rem;
         position: relative;
       }
 
       .client-login-card {
-        background: #0E1526;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+        background: #FFFFFF;
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 30px 60px -15px rgba(10, 40, 130, 0.55);
         max-width: 440px;
         width: 100%;
         padding: 2.25rem 2rem;
@@ -46,9 +42,9 @@ function renderClientPortalLoginStyles() {
       }
 
       .client-login-card input:focus {
-        background: #131B2E !important;
-        border-color: #3B82F6 !important;
-        box-shadow: 0 0 0 1px #3B82F6 !important;
+        background: #FFFFFF !important;
+        border-color: #4D86FF !important;
+        box-shadow: 0 0 0 3px rgba(77, 134, 255, 0.2) !important;
         outline: none !important;
       }
 
@@ -86,27 +82,27 @@ export function renderClientPortalView({
         ${renderClientPortalLoginStyles()}
         <div class="client-login-card">
           <div style="margin-bottom: 1.5rem;">
-            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 4px; color: #60A5FA; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: #E7F0FF; border: 1px solid #C9DBFF; border-radius: 4px; color: #0B5FFF; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem;">
               ${getIcon('lock', '', 12)}
               Conta Protegida
             </div>
-            <h1 style="font-size: 1.35rem; font-weight: 700; color: #F8FAFC; letter-spacing: -0.02em; margin-bottom: 0.35rem;">
+            <h1 style="font-size: 1.35rem; font-weight: 700; color: #0F1B3D; letter-spacing: -0.02em; margin-bottom: 0.35rem;">
               Autenticação Requerida
             </h1>
-            <p style="font-size: 0.8125rem; color: #94A3B8; line-height: 1.5; margin: 0;">
+            <p style="font-size: 0.8125rem; color: #5B6B86; line-height: 1.5; margin: 0;">
               Digite sua senha de acesso para liberar a visualização e gestão das suas plaquinhas.
             </p>
           </div>
 
           <form id="form-client-password-login" data-code="${escapeHtml(passwordCode || clientCode)}">
             <div class="form-group" style="margin-bottom: 1rem;">
-              <label class="form-label" for="client-password-input" style="color: #CBD5E1; font-size: 0.75rem;">Senha da Conta</label>
+              <label class="form-label" for="client-password-input" style="color: #0F1B3D; font-size: 0.75rem;">Senha da Conta</label>
               <input
                 type="password"
                 id="client-password-input"
                 class="form-input"
                 placeholder="••••••••"
-                style="font-size: 0.875rem; padding: 0.65rem 0.85rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; width: 100%; background: #0B101D; color: #F8FAFC;"
+                style="font-size: 0.875rem; padding: 0.65rem 0.85rem; border: 1px solid #E3EAF6; border-radius: 6px; width: 100%; background: #F4F8FE; color: #0F1B3D;"
                 required
                 autofocus
               />
@@ -118,11 +114,11 @@ export function renderClientPortalView({
             </button>
           </form>
 
-          <div style="margin-top: 1.5rem; text-align: center; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem;">
-            <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.75rem; color: #60A5FA; font-weight: 500; text-decoration: none;">
+          <div style="margin-top: 1.5rem; text-align: center; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #E3EAF6; padding-top: 1rem;">
+            <a href="#" id="link-forgot-client-password" data-code="${escapeHtml(passwordCode || clientCode)}" style="font-size: 0.75rem; color: #0B5FFF; font-weight: 500; text-decoration: none;">
               Esqueci minha senha
             </a>
-            <a href="#" id="link-portal-password-back" style="font-size: 0.75rem; color: #64748B; text-decoration: none;">
+            <a href="#" id="link-portal-password-back" style="font-size: 0.75rem; color: #94A3B8; text-decoration: none;">
               Voltar para login principal
             </a>
           </div>
@@ -148,18 +144,18 @@ export function renderClientPortalView({
               <!-- Cabeçalho do Card -->
               <div style="margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                  <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; color: #94A3B8; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">
+                  <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: #F3F7FE; border: 1px solid #E3EAF6; border-radius: 4px; color: #5B6B86; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">
                     <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
                     Portal do Cliente
                   </div>
-                  <span class="font-mono text-xs" style="color: #64748B; font-size: 0.7rem;">v2.6</span>
+                  <span class="font-mono text-xs" style="color: #94A3B8; font-size: 0.7rem;">v2.6</span>
                 </div>
                 
-                <h1 style="font-size: 1.4rem; font-weight: 700; color: #F8FAFC; letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 0.35rem;">
+                <h1 style="font-size: 1.4rem; font-weight: 700; color: #0F1B3D; letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 0.35rem;">
                   Acesse suas Placas
                 </h1>
                 
-                <p style="font-size: 0.8125rem; color: #94A3B8; line-height: 1.5; margin: 0;">
+                <p style="font-size: 0.8125rem; color: #5B6B86; line-height: 1.5; margin: 0;">
                   Identifique-se com seu telefone para acompanhar leituras e gerenciar destinos.
                 </p>
               </div>
@@ -167,9 +163,9 @@ export function renderClientPortalView({
               <!-- Formulário -->
               <form id="form-client-login">
                 <div>
-                  <label class="form-label" for="client-login-input" style="font-weight: 600; color: #E2E8F0; font-size: 0.75rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                  <label class="form-label" for="client-login-input" style="font-weight: 600; color: #0F1B3D; font-size: 0.75rem; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
                     <span>Telefone de Contato ou Código</span>
-                    <span style="font-weight: 500; color: #60A5FA; font-size: 0.6875rem;">Acesso rápido</span>
+                    <span style="font-weight: 500; color: #0B5FFF; font-size: 0.6875rem;">Acesso rápido</span>
                   </label>
                   
                   <div style="position: relative;">
@@ -178,17 +174,17 @@ export function renderClientPortalView({
                       id="client-login-input" 
                       class="form-input font-mono" 
                       placeholder="(11) 98765-4321 ou código invertido" 
-                      style="font-size: 0.875rem; padding: 0.65rem 0.85rem 0.65rem 2.5rem; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; width: 100%; background: #0B101D; color: #F8FAFC; transition: border-color 0.15s ease;" 
+                      style="font-size: 0.875rem; padding: 0.65rem 0.85rem 0.65rem 2.5rem; border: 1px solid #E3EAF6; border-radius: 6px; width: 100%; background: #F4F8FE; color: #0F1B3D; transition: border-color 0.15s ease;" 
                       required 
                       autofocus 
                     />
-                    <div style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #64748B; pointer-events: none; display: flex; align-items: center;">
+                    <div style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #94A3B8; pointer-events: none; display: flex; align-items: center;">
                       ${getIcon('phone', '', 15)}
                     </div>
                   </div>
 
-                  <div style="margin-top: 0.75rem; padding: 0.65rem 0.85rem; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; font-size: 0.725rem; color: #94A3B8; display: flex; align-items: center; gap: 8px;">
-                    <span style="color: #60A5FA; flex-shrink: 0;">${getIcon('info', '', 14)}</span>
+                  <div style="margin-top: 0.75rem; padding: 0.65rem 0.85rem; background: #F3F7FE; border: 1px solid #E3EAF6; border-radius: 6px; font-size: 0.725rem; color: #5B6B86; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #0B5FFF; flex-shrink: 0;">${getIcon('info', '', 14)}</span>
                     <span>Seu código é o número de WhatsApp com os dígitos invertidos.</span>
                   </div>
                 </div>
@@ -200,8 +196,8 @@ export function renderClientPortalView({
               </form>
 
               <!-- Rodapé Separado e Limpo -->
-              <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 1rem;">
-                <a href="#/login" style="font-size: 0.75rem; color: #64748B; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: color 0.15s;">
+              <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #E3EAF6; padding-top: 1rem;">
+                <a href="#/login" style="font-size: 0.75rem; color: #94A3B8; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; transition: color 0.15s;">
                   ${getIcon('lock', '', 13)}
                   <span>Acesso do Administrador</span>
                 </a>
@@ -213,31 +209,27 @@ export function renderClientPortalView({
           <!-- Lado Direito: Identidade Técnica Minimalista -->
           <div class="client-portal-hero-right" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem;">
-              <img 
-                src="/logo.png" 
-                alt="Rei do NFC" 
-                style="width: 48px; height: 48px; object-fit: contain;" 
-              />
+              <img src="/logo.png" alt="Rei do NFC" style="width: 64px; height: 64px; object-fit: contain; flex-shrink: 0;" />
               <div>
-                <div style="font-size: 1.125rem; font-weight: 800; color: #F8FAFC; letter-spacing: -0.01em;">
+                <div style="font-size: 1.125rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.01em;">
                   REI DO NFC
                 </div>
-                <div class="font-mono text-xs" style="color: #64748B; font-size: 0.7rem;">Hardware & QR OS</div>
+                <div class="font-mono text-xs" style="color: rgba(255, 255, 255, 0.7); font-size: 0.7rem;">Hardware & QR OS</div>
               </div>
             </div>
 
-            <div style="color: #94A3B8; font-size: 0.8125rem; line-height: 1.6; max-width: 360px;">
+            <div style="color: rgba(255, 255, 255, 0.85); font-size: 0.8125rem; line-height: 1.6; max-width: 360px;">
               Plataforma para monitoramento de leituras, redirecionamento instantâneo de links e captação de avaliações 5 estrelas no Google Meu Negócio.
             </div>
 
             <div style="margin-top: 1.75rem; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px;">
-              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;">
-                <span style="color: #10B981;">${getIcon('checkCircle', '', 16)}</span>
-                <span style="font-size: 0.75rem; color: #CBD5E1;">QR Codes perpétuos com link editável a qualquer hora</span>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 6px;">
+                <span style="color: #9AF2C0;">${getIcon('checkCircle', '', 16)}</span>
+                <span style="font-size: 0.75rem; color: #FFFFFF;">QR Codes perpétuos com link editável a qualquer hora</span>
               </div>
-              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px;">
-                <span style="color: #3B82F6;">${getIcon('barChart', '', 16)}</span>
-                <span style="font-size: 0.75rem; color: #CBD5E1;">Contagem de acessos em tempo real com telemetria</span>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 6px;">
+                <span style="color: #FFD27A;">${getIcon('barChart', '', 16)}</span>
+                <span style="font-size: 0.75rem; color: #FFFFFF;">Contagem de acessos em tempo real com telemetria</span>
               </div>
             </div>
           </div>
@@ -277,7 +269,7 @@ export function renderClientPortalView({
   const paginatedPlaques = filtered.slice((validPage - 1) * perPage, validPage * perPage);
 
   return `
-    <div style="background: #F8FAFC; min-height: 100vh;">
+    <div style="background: var(--bg-page); min-height: 100vh;">
       
       <!-- Topo do Portal do Cliente -->
       <header style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 1rem 0;">
@@ -433,7 +425,7 @@ export function renderClientPortalView({
                           </span>
                         </div>
                         <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden;">
-                          <div style="width: ${ph.barPercent}%; height: 100%; background: #0F172A; border-radius: 999px;"></div>
+                          <div style="width: ${ph.barPercent}%; height: 100%; background: linear-gradient(90deg, #4D86FF, #0B5FFF); border-radius: 999px;"></div>
                         </div>
                       </div>
                     `).join('')}
@@ -460,7 +452,7 @@ export function renderClientPortalView({
                       <span class="text-blue font-mono">${analytics.milestone.percent}%</span>
                     </div>
                     <div style="width: 100%; height: 6px; background: #E5E7EB; border-radius: 999px; overflow: hidden; margin-bottom: 4px;">
-                      <div style="width: ${analytics.milestone.percent}%; height: 100%; background: #2563EB; border-radius: 999px;"></div>
+                      <div style="width: ${analytics.milestone.percent}%; height: 100%; background: linear-gradient(90deg, #4D86FF, #0B5FFF); border-radius: 999px;"></div>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">
                       <span>Faltam ${analytics.milestone.remaining} leituras</span>
@@ -521,7 +513,7 @@ export function renderClientPortalView({
                           </span>
                         </div>
                         <div style="width: 100%; height: 5px; background: #E5E7EB; border-radius: 999px; overflow: hidden;">
-                          <div style="width: ${dp.percent}%; height: 100%; background: ${dp.isPeak ? '#059669' : '#0F172A'}; border-radius: 999px;"></div>
+                          <div style="width: ${dp.percent}%; height: 100%; background: ${dp.isPeak ? '#F5A524' : '#0B5FFF'}; border-radius: 999px;"></div>
                         </div>
                       </div>
                     `).join('')}
