@@ -96,6 +96,8 @@ export function renderActivationView(plaqueId) {
             <input 
               type="text" 
               id="act-company-name" 
+              name="act-company-name-${escapeHtml(plaque.id)}"
+              autocomplete="off"
               class="form-input" 
               placeholder="Ex: Pizzaria Bella Napoli" 
               value="${escapeHtml(plaque.name || '')}" 
@@ -108,6 +110,8 @@ export function renderActivationView(plaqueId) {
             <input 
               type="url" 
               id="act-google-url" 
+              name="act-google-url-${escapeHtml(plaque.id)}"
+              autocomplete="off"
               class="form-input" 
               placeholder="https://g.page/r/.../review ou link de avaliação" 
               value="${escapeHtml(plaque.target_url || '')}" 

@@ -16,7 +16,7 @@ import { renderSettingsView } from './components/SettingsView.js';
 import { renderEditModal, renderClientEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal, renderClientResetPinModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
-import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml } from './utils/helpers.js';
+import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml, describeLinkProblem } from './utils/helpers.js';
 import { getIcon } from './utils/icons.js';
 
 // startApp() chama renderApp() duas vezes (uma vez com o cache local e
@@ -1244,8 +1244,58 @@ function setupEventListeners() {
       }
 
       const submitBtn = document.getElementById('btn-submit-activate');
-      submitBtn.textContent = 'Salvando e ativando...';
+      const idleLabel = submitBtn.textContent;
+      submitBtn.textContent = 'Conferindo o link...';
       submitBtn.disabled = true;
+
+      // Conferências antes de salvar: o erro mais comum é o link de OUTRA empresa
+      // (ou de rede social) acabar no QR, e o cliente só descobre quando testa.
+      const sameLinkCompany = await storage.findOtherCompanyWithSameLink({
+        clientPhone, targetUrl, excludeId: plaqueId, companyName
+      });
+      if (sameLinkCompany) {
+        const proceed = window.confirm(
+          `ATENÇÃO: esse link é EXATAMENTE o mesmo da sua empresa "${sameLinkCompany.name}" (placa ${sameLinkCompany.id}).\n\n` +
+          `Cada empresa tem o seu próprio link do Google. Se "${companyName}" é outra empresa, o QR dela vai abrir a avaliação da "${sameLinkCompany.name}".\n\n` +
+          `Salvar mesmo assim? (Toque em Cancelar para colar o link correto.)`
+        );
+        if (!proceed) {
+          submitBtn.textContent = idleLabel;
+          submitBtn.disabled = false;
+          return;
+        }
+      }
+
+      const usedByOtherClient = await storage.isLinkUsedByOtherClient({
+        targetUrl, excludeId: plaqueId, clientPhone
+      });
+      if (usedByOtherClient) {
+        const proceed = window.confirm(
+          `ATENÇÃO: esse link já está cadastrado em OUTRA empresa, de outro cliente.\n\n` +
+          `Cada empresa tem o seu próprio link de avaliação do Google. Se você salvar esse, o QR de "${companyName}" vai abrir a avaliação da outra empresa.\n\n` +
+          `Confira se você copiou o link da SUA empresa. Salvar mesmo assim? (Toque em Cancelar para colar o link correto.)`
+        );
+        if (!proceed) {
+          submitBtn.textContent = idleLabel;
+          submitBtn.disabled = false;
+          return;
+        }
+      }
+
+      const linkProblem = describeLinkProblem(targetUrl);
+      if (linkProblem) {
+        const proceed = window.confirm(
+          `${linkProblem}\n\nO QR vai levar o cliente para:\n${targetUrl}\n\n` +
+          `O correto é o link que abre a caixa de avaliação com estrelas da sua empresa no Google. Salvar mesmo assim?`
+        );
+        if (!proceed) {
+          submitBtn.textContent = idleLabel;
+          submitBtn.disabled = false;
+          return;
+        }
+      }
+
+      submitBtn.textContent = 'Salvando e ativando...';
 
       const clientCode = getReversedPhoneCode(clientPhone);
 
@@ -1295,7 +1345,7 @@ function setupEventListeners() {
         }
       } else {
         alert('Erro na ativação: ' + result.error);
-        submitBtn.textContent = 'Ativar e Vincular Plaquinha';
+        submitBtn.textContent = idleLabel;
         submitBtn.disabled = false;
       }
     });

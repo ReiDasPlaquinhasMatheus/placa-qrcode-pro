@@ -153,6 +153,52 @@ export function buildGoogleReviewUrl(input) {
 }
 
 /**
+ * Avisa quando o link colado NÃO parece um link de avaliação/página do Google.
+ * Devolve null se parece correto, ou o motivo (texto curto) para mostrar ao cliente.
+ */
+export function describeLinkProblem(url) {
+  let parsed;
+  try {
+    parsed = new URL(sanitizeUrl(url));
+  } catch (_) {
+    return 'O link não parece válido.';
+  }
+  const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+  const path = parsed.pathname.toLowerCase();
+
+  if (host === 'search.google.com' && path.includes('writereview')) return null;
+  if (host === 'g.page') return null;
+  if (host === 'maps.app.goo.gl' || (host === 'goo.gl' && path.startsWith('/maps'))) return null;
+  if (host.includes('google.') && path.includes('/maps')) return null;
+
+  if (host === 'share.google') {
+    return 'Esse é um link de compartilhamento do Google que abre uma BUSCA, não a página de avaliação da sua empresa.';
+  }
+  if (host.endsWith('instagram.com') || host.endsWith('facebook.com') || host === 'fb.com') {
+    return 'Esse é um link de rede social, não o link de avaliação do Google.';
+  }
+  if (host === 'wa.me' || host.endsWith('whatsapp.com') || host === 'w.app') {
+    return 'Esse é um link de WhatsApp, não o link de avaliação do Google.';
+  }
+  return 'Esse não parece ser um link de avaliação do Google (' + host + ').';
+}
+
+/**
+ * Normaliza um link só para comparar se dois cadastros apontam para o mesmo destino
+ * (ignora maiúsculas, barra final, #âncora e parâmetros de rastreio como g_st).
+ */
+export function normalizeLinkForCompare(url) {
+  try {
+    const u = new URL(sanitizeUrl(url));
+    ['g_st', 'utm_source', 'utm_medium', 'utm_campaign', 'stkn', 'igsh'].forEach(k => u.searchParams.delete(k));
+    u.hash = '';
+    return (u.origin + u.pathname.replace(/\/+$/, '') + u.search).toLowerCase();
+  } catch (_) {
+    return String(url || '').trim().toLowerCase();
+  }
+}
+
+/**
  * Gera a URL do QR Code respeitando a URL Base de Produção configurada
  */
 export function getPlaqueRedirectUrl(plaqueId) {

@@ -1,7 +1,7 @@
 // Placa QR Pro - Data Storage & Persistence Service
 // Sincronização em Tempo Real (Supabase Cloud + Local API + IndexedDB + LocalStorage Fallback)
 // Arquitetura Ultra Otimizada para 10.000+ Placas e 300+ Usuários Simultâneos com Lookups O(1)
-import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex, toLocalDateKey } from '../utils/helpers.js';
+import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex, toLocalDateKey, normalizeLinkForCompare } from '../utils/helpers.js';
 import { idb } from './db.js';
 
 // ---- Histórico de leituras (tabela scan_events) --------------------------
@@ -1250,6 +1250,59 @@ class StorageService {
       } catch (e) {}
     }
     return null;
+  }
+
+  // Procura, entre as placas ATIVAS do mesmo responsável (mesmo telefone), outra
+  // empresa que já usa exatamente este link. Serve para avisar na hora de ativar:
+  // era comum o cliente repetir o link da empresa anterior ao cadastrar a seguinte,
+  // e o QR da nova passava a abrir a empresa errada. Só enxerga as placas do
+  // próprio cliente (mesma função pública do portal); contas com senha ou falha de
+  // rede simplesmente não geram aviso.
+  async findOtherCompanyWithSameLink({ clientPhone, targetUrl, excludeId, companyName }) {
+    const code = getReversedPhoneCode(clientPhone);
+    if (!code || !targetUrl || !this.settings.supabaseUrl || !this.settings.supabaseKey) return null;
+
+    let rows;
+    try {
+      rows = await this.callRpc('public_get_client_plaques', { p_query: code }, 3500);
+    } catch (e) {
+      return null;
+    }
+    if (!Array.isArray(rows)) return null;
+
+    const wanted = normalizeLinkForCompare(targetUrl);
+    const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const myName = norm(companyName);
+    const excluded = String(excludeId || '').toUpperCase();
+
+    return rows.find(r =>
+      r && r.status === 'active' && r.target_url &&
+      String(r.id).toUpperCase() !== excluded &&
+      normalizeLinkForCompare(r.target_url) === wanted &&
+      norm(r.name) !== myName
+    ) || null;
+  }
+
+  // Pergunta ao banco se OUTRO cliente já usa este mesmo link em uma placa ativa
+  // (função public_link_in_use_by_other_client; devolve só verdadeiro/falso, sem
+  // nomes). Caso real: a placa da Ka Pratas foi ativada com o link exato da Gipsy.
+  // Falha de rede, função ainda não criada no banco ou qualquer erro = false, para
+  // nunca atrapalhar uma ativação legítima.
+  async isLinkUsedByOtherClient({ targetUrl, excludeId, clientPhone }) {
+    if (this._linkCheckUnavailable || !targetUrl || !this.settings.supabaseUrl || !this.settings.supabaseKey) return false;
+    try {
+      const result = await this.callRpc('public_link_in_use_by_other_client', {
+        p_url: targetUrl,
+        p_exclude_id: excludeId || '',
+        p_client_code: getReversedPhoneCode(clientPhone) || ''
+      }, 3500);
+      return result === true;
+    } catch (e) {
+      if (/could not find the function|erro 404/i.test(String((e && e.message) || ''))) {
+        this._linkCheckUnavailable = true;
+      }
+      return false;
+    }
   }
 
   // Ativação/edição pública de placa. O PIN agora é validado DENTRO do
