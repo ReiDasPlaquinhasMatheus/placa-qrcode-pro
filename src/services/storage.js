@@ -309,48 +309,60 @@ class StorageService {
   }
 
   async loginAdmin(username, password, rememberMe = true) {
-    const currentUsername = this.getAdminUsername();
-    const currentHash = this.getAdminPasswordHash();
-
+    const typedUser = String(username || '').trim();
     const inputHash = await sha256Hex(password);
-    const isUserValid = String(username).trim().toLowerCase() === String(currentUsername).trim().toLowerCase();
-    const isPassValid = inputHash === currentHash;
 
-    if (isUserValid && isPassValid) {
-      try {
-        if (typeof window !== 'undefined') {
-          const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : Math.random().toString(36).substring(2) + Date.now().toString(36);
-
-          if (rememberMe) {
-            const expiresAt = Date.now() + (1000 * 60 * 60 * 24 * 7); // 7 dias
-            localStorage.setItem('placa_admin_auth_token', JSON.stringify({ token, expiresAt }));
-          } else {
-            sessionStorage.setItem('placa_admin_auth_session', token);
-          }
-        }
-      } catch (e) {}
-
-      // Obtém uma sessão validada no banco (admin_login) para autorizar
-      // as escritas administrativas via RPC. Se estiver offline, o login
-      // local ainda funciona, mas escritas na nuvem ficarão bloqueadas
-      // até a próxima tentativa de sincronização com conexão disponível.
-      try {
-        const sessionToken = await this.callRpc('admin_login', {
-          p_username: username,
-          p_password_hash: inputHash
-        });
-        if (sessionToken) {
-          this.setAdminSessionToken(sessionToken, rememberMe);
-        }
-      } catch (e) {
-        console.warn('Aviso: não foi possível obter sessão de administrador no Supabase (offline?):', e);
-      }
-
-      return { success: true };
+    // 1. O BANCO é a fonte da verdade da senha (admin_credentials). Antes o
+    //    login conferia só o hash guardado neste navegador: uma senha trocada
+    //    (ou redefinida pelo Supabase) só funcionava onde ela tinha sido
+    //    trocada, e a senha original continuava entrando em outros aparelhos.
+    let sessionToken = null;
+    let serverReachable = true;
+    try {
+      sessionToken = await this.callRpc('admin_login', {
+        p_username: typedUser,
+        p_password_hash: inputHash
+      });
+    } catch (e) {
+      serverReachable = false;
+      console.warn('Aviso: sem resposta do servidor no login do administrador (offline?):', e);
     }
-    return { success: false, error: 'Usuário ou senha de Administrador incorretos.' };
+
+    let authorized;
+    if (serverReachable) {
+      authorized = Boolean(sessionToken);
+    } else {
+      // 2. Sem rede: confere com a credencial salva neste navegador
+      const localUser = String(this.getAdminUsername()).trim().toLowerCase();
+      authorized = typedUser.toLowerCase() === localUser && inputHash === this.getAdminPasswordHash();
+    }
+
+    if (!authorized) {
+      return { success: false, error: 'Usuário ou senha de Administrador incorretos.' };
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+        if (rememberMe) {
+          const expiresAt = Date.now() + (1000 * 60 * 60 * 24 * 7); // 7 dias
+          localStorage.setItem('placa_admin_auth_token', JSON.stringify({ token, expiresAt }));
+        } else {
+          sessionStorage.setItem('placa_admin_auth_session', token);
+        }
+      }
+    } catch (e) {}
+
+    if (sessionToken) {
+      this.setAdminSessionToken(sessionToken, rememberMe);
+      // Guarda a credencial confirmada pelo servidor para o modo offline
+      this.saveSettings({ adminUsername: typedUser, adminPasswordHash: inputHash });
+    }
+
+    return { success: true };
   }
 
   logoutAdmin() {

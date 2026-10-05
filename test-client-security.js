@@ -85,10 +85,18 @@ async function runSecurityAudit() {
     // Simula uma sessão de admin válida (sem bater na rede) para os
     // testes de login/troca de credenciais poderem exercitar o mesmo
     // caminho que agora exige sessão confirmada no servidor.
+    // Servidor simulado: guarda usuário/hash e só emite sessão se baterem
+    // (como o admin_login real, que devolve null quando a senha não confere).
     if (fnName === 'admin_login') {
-      return 'mock-session-token-' + Date.now();
+      if (globalThis.__mockServerDown) throw new Error('Failed to fetch');
+      const db = (globalThis.__mockAdminDb ||= { username: 'Matheus', hash: storage.getAdminPasswordHash() });
+      const okUser = String(params.p_username).trim().toLowerCase() === db.username.toLowerCase();
+      return (okUser && params.p_password_hash === db.hash) ? 'mock-session-token-' + Date.now() : null;
     }
     if (fnName === 'admin_change_credentials') {
+      const db = (globalThis.__mockAdminDb ||= { username: 'Matheus', hash: storage.getAdminPasswordHash() });
+      if (params.p_new_username) db.username = params.p_new_username;
+      if (params.p_new_password_hash) db.hash = params.p_new_password_hash;
       return true;
     }
     throw new Error('RPC_NOT_MOCKED_IN_TEST: ' + fnName);
@@ -190,6 +198,23 @@ async function runSecurityAudit() {
   // Login admin correto
   const goodLogin = await storage.loginAdmin(testUser, testPass);
   assert(goodLogin.success === true, 'Login de Dono com credenciais corretas deve ser AUTORIZADO');
+
+  // O banco é a fonte da verdade: senha redefinida no servidor vale em qualquer aparelho,
+  // e a senha antiga (ainda guardada neste navegador) deixa de entrar.
+  const { sha256Hex } = await import('./src/utils/helpers.js');
+  globalThis.__mockAdminDb.hash = await sha256Hex('SenhaRedefinidaNoBanco9');
+  const oldPassLogin = await storage.loginAdmin(testUser, testPass);
+  assert(oldPassLogin.success === false, 'Senha antiga (ainda salva no navegador) NÃO entra depois de redefinida no banco');
+  const newPassLogin = await storage.loginAdmin(testUser, 'SenhaRedefinidaNoBanco9');
+  assert(newPassLogin.success === true, 'Senha redefinida no banco entra, mesmo sem ter sido trocada neste navegador');
+
+  // Sem rede: confere com a credencial salva neste navegador (confirmada na última entrada)
+  globalThis.__mockServerDown = true;
+  const offlineOk = await storage.loginAdmin(testUser, 'SenhaRedefinidaNoBanco9');
+  const offlineBad = await storage.loginAdmin(testUser, 'qualquer-outra');
+  globalThis.__mockServerDown = false;
+  assert(offlineOk.success === true, 'Sem rede, a senha confirmada pelo servidor na última entrada ainda entra');
+  assert(offlineBad.success === false, 'Sem rede, senha errada continua bloqueada');
 
   // 7. Teste de Proteção de Backup JSON (Sem vazamento de senhas)
   console.log('\n📦 7. Testando Sanitização de Backup JSON...');
