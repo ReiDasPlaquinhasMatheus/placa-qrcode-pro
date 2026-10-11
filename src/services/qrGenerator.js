@@ -197,6 +197,11 @@ export async function generateCleanQRCodeSvg(plaqueId, includeLabel = true, opti
 
   const qrInnerMatch = qrSvgRaw.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
   const qrInner = qrInnerMatch ? qrInnerMatch[1] : '';
+  // O desenho do QR vem em unidades de módulo (ex: 0 0 29 29). Usar esse
+  // viewBox é o que faz o QR ocupar a área toda; com 0 0 1000 1000 ele
+  // saía minúsculo no canto superior esquerdo do arquivo.
+  const qrViewBoxMatch = qrSvgRaw.match(/viewBox="([^"]+)"/i);
+  const qrViewBox = qrViewBoxMatch ? qrViewBoxMatch[1] : '0 0 1000 1000';
 
   if (!includeLabel) {
     const qrSize = 920;
@@ -207,7 +212,7 @@ export async function generateCleanQRCodeSvg(plaqueId, includeLabel = true, opti
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
   <rect width="1000" height="1000" fill="#FFFFFF" />
-  <svg x="40" y="40" width="920" height="920" viewBox="0 0 1000 1000">
+  <svg x="40" y="40" width="920" height="920" viewBox="${qrViewBox}" shape-rendering="crispEdges">
     ${qrInner}
   </svg>${logoSvg}
 </svg>`;
@@ -224,7 +229,7 @@ export async function generateCleanQRCodeSvg(plaqueId, includeLabel = true, opti
   <rect width="1000" height="1000" fill="#FFFFFF" />
   
   <!-- QR Code Grande Centralizado (880x880) -->
-  <svg x="60" y="45" width="880" height="880" viewBox="0 0 1000 1000">
+  <svg x="60" y="45" width="880" height="880" viewBox="${qrViewBox}" shape-rendering="crispEdges">
     ${qrInner}
   </svg>
 ${logoSvg}
