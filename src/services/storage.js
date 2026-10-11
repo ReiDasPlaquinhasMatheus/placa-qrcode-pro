@@ -1,8 +1,11 @@
 // Placa QR Pro - Data Storage & Persistence Service
 // Sincronização em Tempo Real (Supabase Cloud + Local API + IndexedDB + LocalStorage Fallback)
 // Arquitetura Ultra Otimizada para 10.000+ Placas e 300+ Usuários Simultâneos com Lookups O(1)
-import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex, toLocalDateKey, normalizeLinkForCompare } from '../utils/helpers.js';
+import { getReversedPhoneCode, isValidHttpUrl, sanitizeUrl, sha256Hex, toLocalDateKey, normalizeLinkForCompare, isInstagramPrefix } from '../utils/helpers.js';
 import { idb } from './db.js';
+
+// Mesmo limite do campo "Tamanho do Lote" nos geradores (o maior lote real tem 1000)
+const MAX_BATCH_SIZE = 1000;
 
 // ---- Histórico de leituras (tabela scan_events) --------------------------
 const BRASILIA_TZ = 'America/Sao_Paulo';
@@ -1013,9 +1016,11 @@ class StorageService {
   }
 
   // Criação em Massa Ultra Otimizada com Proteção Anti-Colisão
-  async createBatch({ prefix = 'PLQ-', startNumber, count = 10, batchName = 'Lote 01', collisionMode = 'auto-next' }) {
+  async createBatch({ prefix = 'PLQ-', startNumber, count = 10, batchName = 'Lote 01', collisionMode = 'auto-next', type = null }) {
     const cleanPrefix = String(prefix || 'PLQ-').toUpperCase().trim();
     const cleanBatchName = String(batchName || 'Lote').trim();
+    // O tipo vem do gerador; sem ele, só o prefixo decide (nunca o nome do lote)
+    const plaqueType = (type === 'instagram' || type === 'google') ? type : (isInstagramPrefix(cleanPrefix) ? 'instagram' : 'google');
     let currentNum = parseInt(startNumber, 10);
 
     if (isNaN(currentNum) || currentNum < 1) {
@@ -1023,6 +1028,9 @@ class StorageService {
     }
 
     const totalCount = Math.max(1, parseInt(count, 10) || 10);
+    if (totalCount > MAX_BATCH_SIZE) {
+      throw new Error(`O máximo por lote é ${MAX_BATCH_SIZE} plaquinhas. Divida em mais de um lote.`);
+    }
 
     // Verificação de colisão
     const availability = this.checkRangeAvailability(cleanPrefix, currentNum, totalCount);
@@ -1064,7 +1072,8 @@ class StorageService {
           activated_at: null,
           scans_count: 0,
           last_scan_at: null,
-          batch_name: cleanBatchName
+          batch_name: cleanBatchName,
+          type: plaqueType
         };
         newPlaques.push(plaque);
         this.plaquesMap.set(plaqueId, plaque);

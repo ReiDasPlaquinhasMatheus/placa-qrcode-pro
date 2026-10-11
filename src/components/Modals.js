@@ -8,7 +8,7 @@ export async function renderQRModal(plaqueId) {
   const plaque = storage.getPlaqueById(plaqueId);
   if (!plaque) return '';
 
-  const qrDataUrl = await generateCleanQRCodePng(plaque.id, 800, true);
+  const qrDataUrl = await generateCleanQRCodePng(plaque, 800, true);
   const isVirgin = plaque.status === 'virgin';
 
   return `

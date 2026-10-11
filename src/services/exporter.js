@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './qrGenerator.js';
+import { isInstagramPlaque } from '../utils/helpers.js';
 
 // Baixar um único arquivo SVG
 export function downloadSvg(svgContent, filename = 'qrcode.svg') {
@@ -73,15 +74,17 @@ export async function exportBatchZip(plaques, batchName = 'Lote-QRCodes', onProg
     const percent = Math.round(((i + 1) / total) * 100);
     onProgress(i + 1, total, plaque.id, percent);
 
-    // 1. Gera PNG em Alta Resolução (1000px com ID no rodapé)
-    const qrPngUrl = await generateCleanQRCodePng(plaque.id, 1000, true);
+    const isIg = isInstagramPlaque(plaque);
+
+    // 1. Gera PNG em Alta Resolução (1000px com ID no rodapé e logo central se for Instagram)
+    const qrPngUrl = await generateCleanQRCodePng(plaque, 1000, true, { logo: isIg ? 'instagram' : null });
     if (qrPngUrl) {
       const qrBase64 = qrPngUrl.split(',')[1];
       folderPng.file(`${plaque.id}-qrcode.png`, qrBase64, { base64: true });
     }
 
-    // 2. Gera SVG Vetorial
-    const svgContent = await generateCleanQRCodeSvg(plaque.id, true);
+    // 2. Gera SVG Vetorial (com logo central vetorial se for Instagram)
+    const svgContent = await generateCleanQRCodeSvg(plaque, true, { logo: isIg ? 'instagram' : null });
     folderSvg.file(`${plaque.id}-qrcode.svg`, svgContent);
 
     csvContent += `"${plaque.id}","${plaque.name || 'Virgem'}","${plaque.status}","${plaque.pin || ''}","${origin}/r/${plaque.id}","${plaque.batch_name || safeBatchName}"\n`;

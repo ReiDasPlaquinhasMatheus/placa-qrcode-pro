@@ -1,5 +1,5 @@
 import { storage } from '../services/storage.js';
-import { escapeHtml } from '../utils/helpers.js';
+import { escapeHtml, isInstagramPlaque } from '../utils/helpers.js';
 import { getIcon } from '../utils/icons.js';
 
 export function renderActivationView(plaqueId) {
@@ -18,6 +18,7 @@ export function renderActivationView(plaqueId) {
   }
 
   const isAlreadyActive = plaque.status === 'active';
+  const isIg = isInstagramPlaque(plaque);
 
   return `
     <div class="container py-8" style="max-width: 460px;" id="activation-card-container">
@@ -26,8 +27,8 @@ export function renderActivationView(plaqueId) {
         <!-- Cabeçalho com Logo -->
         <div class="text-center mb-5">
           <img src="/logo.png" alt="Rei do NFC" style="height: 48px; width: 48px; object-fit: contain; margin: 0 auto 10px;" />
-          <div style="font-size: 0.6875rem; font-weight: 700; color: #2563EB; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
-            Rei do NFC • Hardware Activation
+          <div style="font-size: 0.6875rem; font-weight: 700; color: ${isIg ? '#000000' : '#2563EB'}; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">
+            ${isIg ? 'Rei do NFC • Placa Loja Instagram' : 'Rei do NFC • Hardware Activation'}
           </div>
           <div class="badge ${isAlreadyActive ? 'badge-active' : 'badge-virgin'} mb-2 font-mono" style="display: inline-flex; align-items: center; gap: 4px;">
             <span>${isAlreadyActive ? '●' : '○'}</span>
@@ -38,8 +39,8 @@ export function renderActivationView(plaqueId) {
           </h1>
           <p class="text-xs text-muted mt-1">
             ${isAlreadyActive 
-              ? 'Esta plaquinha já está vinculada. Você pode atualizar o link de destino abaixo.' 
-              : 'Preencha os dados da sua empresa e o link de avaliação do Google para ativar.'}
+              ? (isIg ? 'Esta plaquinha já está vinculada. Você pode atualizar o link da sua loja no Instagram abaixo.' : 'Esta plaquinha já está vinculada. Você pode atualizar o link de destino abaixo.') 
+              : (isIg ? 'Preencha os dados da sua empresa e o link ou @ do seu perfil no Instagram para ativar.' : 'Preencha os dados da sua empresa e o link de avaliação do Google para ativar.')}
           </p>
         </div>
 
@@ -106,18 +107,24 @@ export function renderActivationView(plaqueId) {
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="act-google-url">Link de Avaliação do Google</label>
+            <label class="form-label" for="act-google-url">
+              ${isIg ? 'Perfil ou Link da Loja no Instagram' : 'Link de Avaliação do Google'}
+            </label>
             <input 
-              type="url" 
+              type="${isIg ? 'text' : 'url'}" 
               id="act-google-url" 
               name="act-google-url-${escapeHtml(plaque.id)}"
               autocomplete="off"
               class="form-input" 
-              placeholder="https://g.page/r/.../review ou link de avaliação" 
+              placeholder="${isIg ? '@sualoja ou https://instagram.com/sualoja' : 'https://g.page/r/.../review ou link de avaliação'}" 
               value="${escapeHtml(plaque.target_url || '')}" 
               required 
             />
-            <span class="text-xs text-muted" style="font-size: 0.7rem;">O link direto onde o seu cliente vai dar 5 estrelas.</span>
+            <span class="text-xs text-muted" style="font-size: 0.7rem;">
+              ${isIg 
+                ? 'Digite o seu @usuario ou o link completo do seu perfil do Instagram.' 
+                : 'O link direto onde o seu cliente vai dar 5 estrelas.'}
+            </span>
           </div>
 
           <div class="form-group">

@@ -2,7 +2,7 @@ import { generateQRCodeDataUrl, generatePlaqueDesignSvg } from '../services/qrGe
 import { downloadSvg, downloadPng } from '../services/exporter.js';
 
 export async function renderPlaqueMockup(plaque, currentStyle = 'crystal') {
-  const qrDataUrl = await generateQRCodeDataUrl(plaque.id, 400);
+  const qrDataUrl = await generateQRCodeDataUrl(plaque, 400);
   const isVirgin = plaque.status === 'virgin';
   const companyName = plaque.name || (isVirgin ? 'Placa Pronta p/ Ativação' : 'Sua Empresa Aqui');
   

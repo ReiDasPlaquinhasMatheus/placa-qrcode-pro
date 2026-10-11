@@ -9,6 +9,7 @@ import { renderClientPortalView } from './components/ClientPortalView.js';
 import { renderAdminLoginView } from './components/AdminLoginView.js';
 import { renderPlaqueTable } from './components/PlaqueTable.js';
 import { renderBatchGenerator } from './components/BatchGenerator.js';
+import { renderBatchGeneratorInstagram } from './components/BatchGeneratorInstagram.js';
 import { renderActivationView } from './components/ActivationView.js';
 import { renderGoogleReviewHelper } from './components/GoogleReviewHelper.js';
 import { renderDashboardView } from './components/DashboardView.js';
@@ -16,7 +17,7 @@ import { renderSettingsView } from './components/SettingsView.js';
 import { renderEditModal, renderClientEditModal, renderQRModal, renderDeployGuideModal, renderProgressModal, renderConfirmDeleteBatchModal, renderConfirmDeletePlaqueModal, renderClientSetPasswordModal, renderClientResetPinModal } from './components/Modals.js';
 import { exportBatchZip, exportBatchCsv, downloadSvg, downloadPng } from './services/exporter.js';
 import { generateCleanQRCodePng, generateCleanQRCodeSvg } from './services/qrGenerator.js';
-import { copyToClipboard, buildGoogleReviewUrl, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml, describeLinkProblem } from './utils/helpers.js';
+import { copyToClipboard, buildGoogleReviewUrl, buildInstagramUrl, isInstagramPlaque, getReversedPhoneCode, formatPhone, isValidHttpUrl, escapeHtml, describeLinkProblem } from './utils/helpers.js';
 import { getIcon } from './utils/icons.js';
 
 // startApp() chama renderApp() duas vezes (uma vez com o cache local e
@@ -138,6 +139,7 @@ function getRoute() {
   }
 
   if (hash === '#/gerador' || cleanPath === 'gerador') return { name: 'gerador' };
+  if (hash === '#/lote-instagram' || cleanPath === 'lote-instagram') return { name: 'lote-instagram' };
   if (hash === '#/ajuda-google' || cleanPath === 'ajuda-google') return { name: 'ajuda-google' };
   if (hash === '#/config' || cleanPath === 'config') return { name: 'config' };
 
@@ -219,10 +221,11 @@ async function renderApp() {
           storage.recordScan(redirectId);
           lastScanRecordedId = redirectId;
         }
+        const isIg = isInstagramPlaque(effective);
         appEl.innerHTML = `
           <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #FFFFFF; font-family: var(--font-sans);">
             <div style="text-align: center; padding: 2rem;">
-              <p style="font-size: 0.875rem; color: #64748B;">Redirecionando para as avaliações...</p>
+              <p style="font-size: 0.875rem; color: #64748B;">${isIg ? 'Abrindo perfil no Instagram...' : 'Redirecionando para as avaliações...'}</p>
               <p style="font-weight: 700; font-size: 1.125rem; color: #0F172A; margin-top: 0.5rem;">${escapeHtml(effective.name || redirectId)}</p>
             </div>
           </div>
@@ -395,6 +398,8 @@ async function renderApp() {
       });
     } else if (route.name === 'gerador') {
       mainContentHtml = renderBatchGenerator();
+    } else if (route.name === 'lote-instagram') {
+      mainContentHtml = renderBatchGeneratorInstagram();
     } else if (route.name === 'clientes') {
       mainContentHtml = renderClientsView({
         searchQuery: state.clientSearch,
@@ -1225,6 +1230,151 @@ function setupEventListeners() {
     }
   }
 
+  // Formulário de Criação de Lotes Instagram com Ícone Central
+  const formBatchIg = document.getElementById('form-batch-instagram-create');
+  if (formBatchIg) {
+    const prefixInput = document.getElementById('batch-ig-prefix');
+    const startInput = document.getElementById('batch-ig-start');
+    const countInput = document.getElementById('batch-ig-count');
+    const previewRange = document.getElementById('preview-ig-range');
+    const statusBox = document.getElementById('availability-ig-status-box');
+    const messageEl = document.getElementById('availability-ig-message');
+    const btnUseSuggested = document.getElementById('btn-ig-use-suggested-start');
+    const labelSuggested = document.getElementById('label-ig-suggested-num');
+    const btnSubmitZip = document.getElementById('btn-submit-batch-ig-zip');
+    const btnSubmitOnly = document.getElementById('btn-submit-batch-ig-only');
+
+    const updateRangePreview = () => {
+      if (!prefixInput || !startInput || !countInput) return;
+      const prefix = (prefixInput.value || 'IG-').toUpperCase().trim();
+      const start = parseInt(startInput.value, 10) || 1;
+      const count = parseInt(countInput.value, 10) || 50;
+      
+      const availability = storage.checkRangeAvailability(prefix, start, count);
+      
+      if (previewRange) {
+        previewRange.textContent = `${availability.firstId} → ${availability.lastId} (${count} un)`;
+      }
+
+      if (statusBox && messageEl) {
+        if (availability.available) {
+          statusBox.style.background = '#ECFDF5';
+          statusBox.style.borderColor = '#A7F3D0';
+          messageEl.style.color = '#047857';
+          messageEl.innerHTML = `${getIcon('checkCircle', 'text-green', 14)} <span>Todos os ${count} códigos estão disponíveis e livres para emissão.</span>`;
+          if (btnUseSuggested) btnUseSuggested.style.display = 'none';
+        } else {
+          statusBox.style.background = '#FFFBEB';
+          statusBox.style.borderColor = '#FDE68A';
+          messageEl.style.color = '#92400E';
+          messageEl.innerHTML = `${getIcon('alertTriangle', 'text-amber', 14)} <span>Atenção: ${availability.existingIds.length} código(s) deste intervalo já existem no sistema.</span>`;
+          if (btnUseSuggested && labelSuggested) {
+            labelSuggested.textContent = availability.suggestedStart;
+            btnUseSuggested.style.display = 'inline-block';
+          }
+        }
+      }
+    };
+
+    prefixInput.addEventListener('input', updateRangePreview);
+    startInput.addEventListener('input', updateRangePreview);
+    countInput.addEventListener('input', updateRangePreview);
+
+    if (btnUseSuggested) {
+      btnUseSuggested.addEventListener('click', () => {
+        const prefix = (prefixInput.value || 'IG-').toUpperCase().trim();
+        const next = storage.getNextAvailableNumber(prefix);
+        startInput.value = next;
+        updateRangePreview();
+      });
+    }
+
+    document.querySelectorAll('.btn-ig-count-preset').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-ig-count-preset').forEach(b => {
+          b.className = 'btn btn-secondary btn-xs btn-ig-count-preset';
+        });
+        e.currentTarget.className = 'btn btn-primary btn-xs btn-ig-count-preset';
+        countInput.value = e.currentTarget.dataset.count;
+        updateRangePreview();
+      });
+    });
+
+    const handleCreateBatchIg = async (downloadZip = true) => {
+      const batchName = document.getElementById('batch-ig-name')?.value?.trim() || 'Lote Instagram 01';
+      const prefix = (prefixInput?.value || 'IG-').toUpperCase().trim();
+      const startNumber = parseInt(startInput?.value, 10) || 1;
+      const count = parseInt(countInput?.value, 10) || 50;
+
+      // O botão "Apenas Registrar" não passa pela validação do formulário
+      // (required/min/max), então confere aqui também.
+      if (!formBatchIg.reportValidity()) return;
+
+      if (btnSubmitZip) btnSubmitZip.disabled = true;
+      if (btnSubmitOnly) btnSubmitOnly.disabled = true;
+
+      try {
+        if (downloadZip) {
+          modalContainer.innerHTML = renderProgressModal({
+            title: 'Emitindo Lote Instagram e Gerando ZIP',
+            current: 0,
+            total: count,
+            percent: 0,
+            message: 'Registrando plaquinhas no banco de dados...'
+          });
+        }
+
+        const newPlaques = await storage.createBatch({
+          prefix,
+          startNumber,
+          count,
+          batchName,
+          collisionMode: 'auto-next',
+          type: 'instagram'
+        });
+
+        if (downloadZip) {
+          const barFill = document.getElementById('progress-bar-fill');
+          const countEl = document.getElementById('progress-modal-count');
+          const percentEl = document.getElementById('progress-modal-percent');
+          const msgEl = document.getElementById('progress-modal-message');
+
+          await exportBatchZip(newPlaques, batchName.replace(/\s+/g, '-'), (curr, tot, plaqueId, pct) => {
+            if (barFill) barFill.style.width = `${pct}%`;
+            if (countEl) countEl.textContent = `${curr} / ${tot} gerados`;
+            if (percentEl) percentEl.textContent = `${pct}%`;
+            if (msgEl) {
+              msgEl.textContent = plaqueId === 'compactando' 
+                ? 'Compactando pacote ZIP para download...' 
+                : `Renderizando QR Code Instagram com logo central (${plaqueId})...`;
+            }
+          });
+
+          modalContainer.innerHTML = '';
+        }
+
+        window.location.hash = `#/lote/${encodeURIComponent(batchName)}`;
+      } catch (err) {
+        modalContainer.innerHTML = '';
+        alert('Erro ao processar lote: ' + err.message);
+        if (btnSubmitZip) btnSubmitZip.disabled = false;
+        if (btnSubmitOnly) btnSubmitOnly.disabled = false;
+      }
+    };
+
+    formBatchIg.addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleCreateBatchIg(true);
+    });
+
+    if (btnSubmitOnly) {
+      btnSubmitOnly.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleCreateBatchIg(false);
+      });
+    }
+  }
+
   // Formulário de Ativação do Cliente
   const formActivate = document.getElementById('form-activate-plaque');
   if (formActivate) {
@@ -1237,9 +1387,13 @@ function setupEventListeners() {
       const googleUrlInput = document.getElementById('act-google-url')?.value || '';
       const pin = document.getElementById('act-pin')?.value || '1234';
 
-      const targetUrl = buildGoogleReviewUrl(googleUrlInput);
+      // Usa a placa inteira (campo type), não só o ID — senão uma placa
+      // Instagram com prefixo próprio mostrava o formulário do Instagram
+      // mas era salva com as regras do Google.
+      const isIg = isInstagramPlaque(storage.getPlaqueById(plaqueId) || plaqueId);
+      const targetUrl = isIg ? buildInstagramUrl(googleUrlInput) : buildGoogleReviewUrl(googleUrlInput);
       if (!isValidHttpUrl(targetUrl)) {
-        alert('Por favor, insira um link válido do Google.');
+        alert(isIg ? 'Por favor, insira um link ou @ válido do Instagram.' : 'Por favor, insira um link válido do Google.');
         return;
       }
 
@@ -1256,7 +1410,7 @@ function setupEventListeners() {
       if (sameLinkCompany) {
         const proceed = window.confirm(
           `ATENÇÃO: esse link é EXATAMENTE o mesmo da sua empresa "${sameLinkCompany.name}" (placa ${sameLinkCompany.id}).\n\n` +
-          `Cada empresa tem o seu próprio link do Google. Se "${companyName}" é outra empresa, o QR dela vai abrir a avaliação da "${sameLinkCompany.name}".\n\n` +
+          `Cada empresa tem o seu próprio link. Se "${companyName}" é outra empresa, o QR dela vai abrir o destino da "${sameLinkCompany.name}".\n\n` +
           `Salvar mesmo assim? (Toque em Cancelar para colar o link correto.)`
         );
         if (!proceed) {
@@ -1272,8 +1426,8 @@ function setupEventListeners() {
       if (usedByOtherClient) {
         const proceed = window.confirm(
           `ATENÇÃO: esse link já está cadastrado em OUTRA empresa, de outro cliente.\n\n` +
-          `Cada empresa tem o seu próprio link de avaliação do Google. Se você salvar esse, o QR de "${companyName}" vai abrir a avaliação da outra empresa.\n\n` +
-          `Confira se você copiou o link da SUA empresa. Salvar mesmo assim? (Toque em Cancelar para colar o link correto.)`
+          `Cada empresa deve ter o seu próprio link. Se você salvar esse, o QR de "${companyName}" vai abrir o perfil/avaliação da outra empresa.\n\n` +
+          `Confira se você digitou o link correto da SUA empresa. Salvar mesmo assim?`
         );
         if (!proceed) {
           submitBtn.textContent = idleLabel;
@@ -1282,11 +1436,13 @@ function setupEventListeners() {
         }
       }
 
-      const linkProblem = describeLinkProblem(targetUrl);
+      const linkProblem = describeLinkProblem(targetUrl, isIg);
       if (linkProblem) {
         const proceed = window.confirm(
           `${linkProblem}\n\nO QR vai levar o cliente para:\n${targetUrl}\n\n` +
-          `O correto é o link que abre a caixa de avaliação com estrelas da sua empresa no Google. Salvar mesmo assim?`
+          (isIg 
+            ? `O correto é o perfil ou loja da sua empresa no Instagram. Salvar mesmo assim?`
+            : `O correto é o link que abre a caixa de avaliação com estrelas da sua empresa no Google. Salvar mesmo assim?`)
         );
         if (!proceed) {
           submitBtn.textContent = idleLabel;
@@ -1765,7 +1921,7 @@ function setupModalListeners() {
     btnDownloadSvg.addEventListener('click', async () => {
       const plaque = storage.getPlaqueById(state.activePlaqueId);
       if (plaque) {
-        const svgString = await generateCleanQRCodeSvg(plaque.id, true);
+        const svgString = await generateCleanQRCodeSvg(plaque, true);
         downloadSvg(svgString, `qrcode-${plaque.id}-quadrado.svg`);
       }
     });
@@ -1776,7 +1932,7 @@ function setupModalListeners() {
     btnDownloadPng.addEventListener('click', async () => {
       const plaque = storage.getPlaqueById(state.activePlaqueId);
       if (plaque) {
-        const pngUrl = await generateCleanQRCodePng(plaque.id, 1000, true);
+        const pngUrl = await generateCleanQRCodePng(plaque, 1000, true);
         if (pngUrl) {
           downloadPng(pngUrl, `qrcode-${plaque.id}-1000x1000px.png`);
         }

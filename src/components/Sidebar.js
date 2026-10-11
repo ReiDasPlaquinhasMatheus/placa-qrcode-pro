@@ -78,6 +78,12 @@ export function renderSidebar(activeRoute = 'lotes') {
 
         <div class="nav-section-title" style="margin-top: 0.5rem;">Fábrica & Operação</div>
 
+        <a href="#/lote-instagram" class="nav-item ${activeRoute === 'lote-instagram' ? 'active' : ''}">
+          <span class="nav-item-icon" style="color: #FFFFFF;">${getIcon('instagram', '', 16)}</span>
+          <span>Lote Instagram</span>
+          <span class="nav-badge" style="background: #000000; color: #FFFFFF; font-size: 0.625rem; border: 1px solid rgba(255,255,255,0.2);">Novo</span>
+        </a>
+
         <a href="#/ajuda-google" class="nav-item ${activeRoute === 'ajuda-google' ? 'active' : ''}">
           <span class="nav-item-icon">${getIcon('star', '', 16)}</span>
           <span>Link Google Avaliações</span>

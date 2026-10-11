@@ -153,10 +153,61 @@ export function buildGoogleReviewUrl(input) {
 }
 
 /**
- * Avisa quando o link colado NÃO parece um link de avaliação/página do Google.
+ * Construtor inteligente do link direto do Instagram para perfis e lojas
+ */
+export function buildInstagramUrl(input) {
+  if (!input || typeof input !== 'string') return '';
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  // Link completo (com protocolo): devolve como está. Se não for do
+  // Instagram, describeLinkProblem avisa o cliente antes de salvar.
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Domínio do Instagram digitado sem https:// (ex: instagram.com/loja)
+  if (/^(www\.)?(instagram\.com|instagr\.am)(\/|\?|$)/i.test(trimmed)) {
+    return sanitizeUrl(trimmed);
+  }
+
+  // @usuario ou usuario: o Instagram só aceita letras, números, ponto e _
+  // (até 30 caracteres). Qualquer outra coisa é recusada em vez de virar
+  // uma URL quebrada.
+  const cleanUsername = trimmed.replace(/^[@/]+/, '').replace(/\/+$/, '');
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(cleanUsername)) return '';
+  return `https://www.instagram.com/${cleanUsername}/`;
+}
+
+/**
+ * Identifica se uma placa é do tipo Instagram.
+ *
+ * O que vale é o campo `type` salvo no banco. Placas antigas (anteriores à
+ * coluna `type`) não têm o campo e, sem ele, só os prefixos IG- / INSTA-
+ * contam — nunca o nome do lote (um lote "Instalação" virava Instagram).
+ * Aceita a placa inteira ou só o ID.
+ */
+export function isInstagramPlaque(plaqueOrId) {
+  if (!plaqueOrId) return false;
+  if (typeof plaqueOrId === 'object') {
+    if (plaqueOrId.type === 'instagram') return true;
+    if (plaqueOrId.type === 'google') return false;
+    return isInstagramPrefix(plaqueOrId.id);
+  }
+  return isInstagramPrefix(plaqueOrId);
+}
+
+export function isInstagramPrefix(idOrPrefix) {
+  const upper = String(idOrPrefix || '').toUpperCase().trim();
+  return upper.startsWith('IG-') || upper.startsWith('INSTA-');
+}
+
+/**
+ * Avisa quando o link colado NÃO parece um link válido para o destino da placa.
+ * Suporta tanto placas Google quanto placas Instagram.
  * Devolve null se parece correto, ou o motivo (texto curto) para mostrar ao cliente.
  */
-export function describeLinkProblem(url) {
+export function describeLinkProblem(url, isInstagram = false) {
   let parsed;
   try {
     parsed = new URL(sanitizeUrl(url));
@@ -166,6 +217,15 @@ export function describeLinkProblem(url) {
   const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
   const path = parsed.pathname.toLowerCase();
 
+  // Validação para placas do Instagram
+  if (isInstagram) {
+    const isIgHost = host === 'instagram.com' || host.endsWith('.instagram.com') || host === 'instagr.am';
+    if (isIgHost && path.replace(/\/+$/, '') !== '') return null;
+    if (isIgHost) return 'Esse link abre só a página inicial do Instagram, não o perfil da sua empresa.';
+    return 'Esse não parece ser um link do Instagram (' + host + '). Cole o link do seu perfil ou seu @usuario.';
+  }
+
+  // Validação para placas padrão do Google Meu Negócio
   if (host === 'search.google.com' && path.includes('writereview')) return null;
   if (host === 'g.page') return null;
   if (host === 'maps.app.goo.gl' || (host === 'goo.gl' && path.startsWith('/maps'))) return null;
